@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, User, Clock, Shield } from "lucide-react";
 
 interface UserSettings {
   autoStart: boolean;
@@ -45,34 +46,41 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="p-4 md:p-6">
+      {/* Subtle background gradient */}
+      <div className="fixed inset-0 bg-gradient-to-b from-primary/3 via-transparent to-transparent pointer-events-none" />
+
+      <header className="relative z-10 p-4 md:p-6">
         <button
           onClick={() => navigate("/app")}
-          className="text-sm text-muted-foreground hover:text-foreground transition-calm"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
         >
-          ← Back
+          <ArrowLeft className="w-4 h-4" />
+          Back
         </button>
       </header>
 
-      <main className="flex-1 px-6 pb-20 max-w-lg mx-auto w-full">
+      <main className="relative z-10 flex-1 px-6 pb-20 max-w-lg mx-auto w-full">
         <div className="animate-fade-up">
           <h1 className="text-2xl font-semibold text-foreground mb-8">
             Settings
           </h1>
 
           {/* Account section */}
-          <section className="mb-10">
-            <h2 className="text-sm text-muted-foreground uppercase tracking-wider mb-4">
-              Account
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-2">
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="w-4 h-4 text-primary" />
+              <h2 className="text-sm text-muted-foreground uppercase tracking-wider font-medium">
+                Account
+              </h2>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-card/50 border border-border/30">
                 <span className="text-foreground">Email</span>
-                <span className="text-muted-foreground">{user?.email}</span>
+                <span className="text-muted-foreground text-sm">{user?.email}</span>
               </div>
-              <div className="flex items-center justify-between py-2">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-card/50 border border-border/30">
                 <span className="text-foreground">Plan</span>
-                <span className="text-muted-foreground">
+                <span className={`text-sm px-2 py-0.5 rounded-full ${isPro ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>
                   {isPro ? "Pro" : "Free"}
                 </span>
               </div>
@@ -89,15 +97,18 @@ const Settings = () => {
           </section>
 
           {/* Session preferences */}
-          <section className="mb-10">
-            <h2 className="text-sm text-muted-foreground uppercase tracking-wider mb-4">
-              Session
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-2">
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Clock className="w-4 h-4 text-primary" />
+              <h2 className="text-sm text-muted-foreground uppercase tracking-wider font-medium">
+                Session
+              </h2>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-card/50 border border-border/30">
                 <div>
-                  <p className="text-foreground">Auto-start</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-foreground font-medium">Auto-start</p>
+                  <p className="text-xs text-muted-foreground mt-1">
                     Session begins when you open focuu
                   </p>
                 </div>
@@ -109,62 +120,67 @@ const Settings = () => {
                     }
                   />
                 ) : (
-                  <span className="text-xs text-muted-foreground">Pro</span>
+                  <span className="text-xs text-muted-foreground px-2 py-1 rounded-full bg-secondary">Pro</span>
                 )}
               </div>
             </div>
           </section>
 
           {/* Time boundaries */}
-          <section className="mb-10">
-            <h2 className="text-sm text-muted-foreground uppercase tracking-wider mb-4">
-              Boundaries
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <p className="text-foreground">Work hours</p>
-                  <p className="text-xs text-muted-foreground">
-                    Remind you to rest outside these hours
-                  </p>
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-4 h-4 text-primary" />
+              <h2 className="text-sm text-muted-foreground uppercase tracking-wider font-medium">
+                Boundaries
+              </h2>
+            </div>
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-card/50 border border-border/30">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-foreground font-medium">Work hours</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Remind you to rest outside these hours
+                    </p>
+                  </div>
+                  {isPro ? (
+                    <Switch
+                      checked={settings.workHoursEnabled}
+                      onCheckedChange={(checked) =>
+                        updateSettings({ workHoursEnabled: checked })
+                      }
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground px-2 py-1 rounded-full bg-secondary">Pro</span>
+                  )}
                 </div>
-                {isPro ? (
-                  <Switch
-                    checked={settings.workHoursEnabled}
-                    onCheckedChange={(checked) =>
-                      updateSettings({ workHoursEnabled: checked })
-                    }
-                  />
-                ) : (
-                  <span className="text-xs text-muted-foreground">Pro</span>
+                {isPro && settings.workHoursEnabled && (
+                  <div className="flex gap-4 mt-4 pt-4 border-t border-border/30">
+                    <div className="flex-1">
+                      <label className="text-xs text-muted-foreground">Start</label>
+                      <input
+                        type="time"
+                        value={settings.workHoursStart}
+                        onChange={(e) =>
+                          updateSettings({ workHoursStart: e.target.value })
+                        }
+                        className="block mt-1 w-full bg-secondary border border-border rounded-lg px-3 py-2 text-foreground text-sm"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-muted-foreground">End</label>
+                      <input
+                        type="time"
+                        value={settings.workHoursEnd}
+                        onChange={(e) =>
+                          updateSettings({ workHoursEnd: e.target.value })
+                        }
+                        className="block mt-1 w-full bg-secondary border border-border rounded-lg px-3 py-2 text-foreground text-sm"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
-              {isPro && settings.workHoursEnabled && (
-                <div className="flex gap-4 py-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground">Start</label>
-                    <input
-                      type="time"
-                      value={settings.workHoursStart}
-                      onChange={(e) =>
-                        updateSettings({ workHoursStart: e.target.value })
-                      }
-                      className="block mt-1 bg-card border border-border rounded px-2 py-1 text-foreground text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">End</label>
-                    <input
-                      type="time"
-                      value={settings.workHoursEnd}
-                      onChange={(e) =>
-                        updateSettings({ workHoursEnd: e.target.value })
-                      }
-                      className="block mt-1 bg-card border border-border rounded px-2 py-1 text-foreground text-sm"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           </section>
 
