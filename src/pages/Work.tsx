@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useSessionTimer, EnergyMode, ENERGY_CONFIGS } from "@/hooks/useSessionTimer";
@@ -6,6 +6,7 @@ import { usePresenceCount, useWorkingPresence } from "@/hooks/usePresenceCount";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSavedModes } from "@/hooks/useSavedModes";
 import EnergyModeSelector from "@/components/session/EnergyModeSelector";
 import SessionTimerDisplay from "@/components/session/SessionTimerDisplay";
 import PresenceIndicator from "@/components/session/PresenceIndicator";
@@ -26,6 +27,7 @@ const Work = () => {
   const { recordSession } = useSessionHistory();
   const { settings, isWithinWorkHours } = useSettings();
   const { profile, user } = useAuth();
+  const { getDefaultMode, isLoading: modesLoading } = useSavedModes();
 
   const [phase, setPhase] = useState<SessionPhase>("setup");
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
@@ -33,11 +35,34 @@ const Work = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState("");
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [modeApplied, setModeApplied] = useState(false);
   const sessionStartRef = useRef<Date | null>(null);
 
   const isPro = profile?.is_pro ?? false;
   const isGuest = !user;
   const outsideHours = isPro && settings.workHoursEnabled && !isWithinWorkHours();
+
+  // Auto-load default saved mode for Pro users
+  useEffect(() => {
+    if (isPro && !modesLoading && !modeApplied) {
+      const defaultMode = getDefaultMode();
+      if (defaultMode) {
+        // Handle custom mode - if sessionLength doesn't match standard modes
+        const standardLengths = { low: 15, normal: 30, focused: 45 };
+        const matchingMode = Object.entries(standardLengths).find(
+          ([_, length]) => length === defaultMode.sessionLength
+        );
+        
+        if (matchingMode) {
+          setEnergyMode(matchingMode[0] as EnergyMode);
+        } else {
+          setEnergyMode("custom");
+          setCustomMinutes(defaultMode.sessionLength);
+        }
+        setModeApplied(true);
+      }
+    }
+  }, [isPro, modesLoading, modeApplied, getDefaultMode]);
 
   // Get active task for session display
   const activeTask = tasks.find(t => t.isActive);
