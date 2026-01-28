@@ -8,6 +8,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSavedModes } from "@/hooks/useSavedModes";
 import EnergyModeSelector from "@/components/session/EnergyModeSelector";
+import PomodoroSettings from "@/components/session/PomodoroSettings";
 import SessionTimerDisplay from "@/components/session/SessionTimerDisplay";
 import PresenceIndicator from "@/components/session/PresenceIndicator";
 import SessionClosure from "@/components/session/SessionClosure";
@@ -37,6 +38,7 @@ const Work = () => {
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
   const [timerMode, setTimerMode] = useState<TimerMode>("flexible");
   const [customMinutes, setCustomMinutes] = useState(25);
+  const [customBreakMinutes, setCustomBreakMinutes] = useState(5);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState("");
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
@@ -72,9 +74,6 @@ const Work = () => {
   const activeTask = tasks.find(t => t.isActive);
 
   const handleSessionEnd = useCallback(() => {
-    const sessionLength = energyMode === "custom" ? customMinutes : ENERGY_CONFIGS[energyMode].sessionLength;
-    recordSession(energyMode, activeTask?.text || null, sessionLength);
-    
     // For pomodoro mode, suggest a break
     if (timerMode === "pomodoro") {
       setIsOnBreak(true);
@@ -82,20 +81,26 @@ const Work = () => {
     
     stopTracking();
     setPhase("closure");
-  }, [energyMode, customMinutes, activeTask, recordSession, stopTracking, timerMode]);
+  }, [stopTracking, timerMode]);
 
   const {
     formattedTime,
     isRunning,
     progress,
+    timerType,
+    getElapsedMinutes,
     start,
     pause,
     resume,
     reset,
     extend,
+    startBreak,
+    startNewSession,
   } = useSessionTimer({
     energyMode,
+    timerType: timerMode === "pomodoro" ? "countdown" : "stopwatch",
     customMinutes,
+    customBreakMinutes,
     onSessionEnd: handleSessionEnd,
   });
 
@@ -114,7 +119,14 @@ const Work = () => {
     }
   };
 
+  // Record session and stop - works for both timer types
   const handleStop = () => {
+    // Always record the session with actual time worked
+    const elapsedMinutes = getElapsedMinutes();
+    if (elapsedMinutes > 0) {
+      recordSession(energyMode, activeTask?.text || null, elapsedMinutes);
+    }
+    
     reset();
     stopTracking();
     setPhase("setup");
@@ -124,17 +136,21 @@ const Work = () => {
   };
 
   const handleContinue = () => {
-    extend(timerMode === "pomodoro" ? ENERGY_CONFIGS[energyMode === "custom" ? "normal" : energyMode].sessionLength : 15);
+    if (timerMode === "pomodoro") {
+      startNewSession();
+    } else {
+      // For flexible, just continue the stopwatch
+      resume();
+    }
     setIsOnBreak(false);
     setPhase("working");
   };
 
   const handleTakeBreak = () => {
-    // Start a break timer (5 minutes default)
-    const breakLength = ENERGY_CONFIGS[energyMode === "custom" ? "normal" : energyMode].breakLength;
-    extend(breakLength);
+    if (timerMode === "pomodoro") {
+      startBreak();
+    }
     setIsOnBreak(true);
-    setPhase("working");
   };
 
   const handleUpgradeClick = () => {
@@ -234,6 +250,8 @@ const Work = () => {
                       formattedTime={formattedTime}
                       isRunning={isRunning}
                       progress={progress}
+                      timerType={timerType}
+                      isOnBreak={isOnBreak}
                     />
                   </div>
 
@@ -252,14 +270,14 @@ const Work = () => {
                       )}
                     </Button>
                     
-                    {/* Take break button - only for flexible mode during work */}
-                    {timerMode === "flexible" && !isOnBreak && (
+                    {/* Take break button - only for pomodoro mode, not during break */}
+                    {timerMode === "pomodoro" && !isOnBreak && (
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={handleTakeBreak}
                         className="w-12 h-12 rounded-full border border-border/30 bg-card/20 backdrop-blur-sm hover:bg-primary/10 hover:border-primary/30 transition-calm"
-                        title="Take a break"
+                        title="Start break"
                       >
                         <Coffee className="w-4 h-4 text-muted-foreground" />
                       </Button>
@@ -295,7 +313,7 @@ const Work = () => {
                     </p>
                     
                     {/* Timer Mode Selector */}
-                    <div className="flex justify-center mb-6">
+                    <div className="flex justify-center mb-4">
                       <TimerModeSelector
                         selected={timerMode}
                         onSelect={setTimerMode}
@@ -305,22 +323,27 @@ const Work = () => {
                     <p className="text-xs text-muted-foreground/60 mb-6">
                       {timerMode === "pomodoro" 
                         ? "Work sessions with scheduled breaks" 
-                        : "Work as long as you want, take breaks when ready"}
+                        : "Stopwatch mode — work as long as you want, pause anytime"}
                     </p>
                     
-                    <EnergyModeSelector
-                      selected={energyMode}
-                      onSelect={setEnergyMode}
-                      customMinutes={customMinutes}
-                      onCustomMinutesChange={setCustomMinutes}
-                    />
+                    {/* Only show settings for Pomodoro mode */}
+                    {timerMode === "pomodoro" && (
+                      <PomodoroSettings
+                        energyMode={energyMode}
+                        onEnergyModeChange={setEnergyMode}
+                        customWorkMinutes={customMinutes}
+                        onCustomWorkMinutesChange={setCustomMinutes}
+                        customBreakMinutes={customBreakMinutes}
+                        onCustomBreakMinutesChange={setCustomBreakMinutes}
+                      />
+                    )}
                     
                     <Button
                       onClick={handleStart}
                       size="lg"
                       className="mt-8 px-12 py-6 text-base font-medium rounded-full transition-calm hover:scale-[1.02] bg-primary/90 hover:bg-primary"
                     >
-                      Begin Session
+                      {timerMode === "flexible" ? "Start Stopwatch" : "Begin Session"}
                     </Button>
                   </div>
 

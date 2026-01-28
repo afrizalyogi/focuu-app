@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export type EnergyMode = "low" | "normal" | "focused" | "custom";
+export type TimerType = "countdown" | "stopwatch";
 
 interface SessionConfig {
   sessionLength: number; // in minutes
@@ -8,26 +9,39 @@ interface SessionConfig {
 }
 
 const ENERGY_CONFIGS: Record<Exclude<EnergyMode, "custom">, SessionConfig> = {
-  low: { sessionLength: 15, breakLength: 10 },
-  normal: { sessionLength: 30, breakLength: 5 },
-  focused: { sessionLength: 45, breakLength: 5 },
+  low: { sessionLength: 15, breakLength: 5 },
+  normal: { sessionLength: 25, breakLength: 5 },
+  focused: { sessionLength: 45, breakLength: 10 },
 };
 
 interface UseSessionTimerOptions {
   energyMode: EnergyMode;
+  timerType: TimerType;
   customMinutes?: number;
+  customBreakMinutes?: number;
   onSessionEnd?: () => void;
 }
 
-export const useSessionTimer = ({ energyMode, customMinutes = 25, onSessionEnd }: UseSessionTimerOptions) => {
+export const useSessionTimer = ({ 
+  energyMode, 
+  timerType,
+  customMinutes = 25, 
+  customBreakMinutes = 5,
+  onSessionEnd 
+}: UseSessionTimerOptions) => {
   const getSessionLength = () => {
     if (energyMode === "custom") return customMinutes;
     return ENERGY_CONFIGS[energyMode].sessionLength;
   };
 
+  const getBreakLength = () => {
+    if (energyMode === "custom") return customBreakMinutes;
+    return ENERGY_CONFIGS[energyMode].breakLength;
+  };
+
   const getConfig = (): SessionConfig => {
     if (energyMode === "custom") {
-      return { sessionLength: customMinutes, breakLength: 5 };
+      return { sessionLength: customMinutes, breakLength: customBreakMinutes };
     }
     return ENERGY_CONFIGS[energyMode];
   };
@@ -35,42 +49,63 @@ export const useSessionTimer = ({ energyMode, customMinutes = 25, onSessionEnd }
   const sessionLength = getSessionLength();
   const totalSeconds = sessionLength * 60;
 
-  const [timeRemaining, setTimeRemaining] = useState(totalSeconds);
+  // For countdown: time remaining (counts down)
+  // For stopwatch: elapsed time (counts up)
+  const [time, setTime] = useState(timerType === "countdown" ? totalSeconds : 0);
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const elapsedSecondsRef = useRef(0);
 
-  // Reset timer when energy mode or custom minutes changes
+  // Reset timer when energy mode, timer type, or custom minutes changes
   useEffect(() => {
-    const newTotal = getSessionLength() * 60;
-    setTimeRemaining(newTotal);
+    if (timerType === "countdown") {
+      const newTotal = getSessionLength() * 60;
+      setTime(newTotal);
+    } else {
+      setTime(0);
+      elapsedSecondsRef.current = 0;
+    }
     setIsComplete(false);
-  }, [energyMode, customMinutes]);
+  }, [energyMode, timerType, customMinutes]);
 
   // Timer logic
   useEffect(() => {
     if (!isRunning || isComplete) return;
 
     const interval = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          setIsRunning(false);
-          setIsComplete(true);
-          onSessionEnd?.();
-          return 0;
-        }
-        return prev - 1;
-      });
+      if (timerType === "countdown") {
+        // Countdown mode
+        setTime((prev) => {
+          if (prev <= 1) {
+            setIsRunning(false);
+            setIsComplete(true);
+            onSessionEnd?.();
+            return 0;
+          }
+          return prev - 1;
+        });
+      } else {
+        // Stopwatch mode - count up
+        setTime((prev) => {
+          elapsedSecondsRef.current = prev + 1;
+          return prev + 1;
+        });
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isRunning, isComplete, onSessionEnd]);
+  }, [isRunning, isComplete, onSessionEnd, timerType]);
 
   const start = useCallback(() => {
     setIsRunning(true);
     setStartTime(new Date());
     setIsComplete(false);
-  }, []);
+    if (timerType === "stopwatch") {
+      setTime(0);
+      elapsedSecondsRef.current = 0;
+    }
+  }, [timerType]);
 
   const pause = useCallback(() => {
     setIsRunning(false);
@@ -81,39 +116,85 @@ export const useSessionTimer = ({ energyMode, customMinutes = 25, onSessionEnd }
   }, []);
 
   const reset = useCallback(() => {
-    setTimeRemaining(getSessionLength() * 60);
+    if (timerType === "countdown") {
+      setTime(getSessionLength() * 60);
+    } else {
+      setTime(0);
+      elapsedSecondsRef.current = 0;
+    }
     setIsRunning(false);
     setIsComplete(false);
     setStartTime(null);
-  }, [energyMode, customMinutes]);
+  }, [energyMode, customMinutes, timerType]);
 
   const extend = useCallback((minutes: number) => {
-    setTimeRemaining((prev) => prev + minutes * 60);
+    if (timerType === "countdown") {
+      setTime((prev) => prev + minutes * 60);
+    }
     setIsComplete(false);
     setIsRunning(true);
-  }, []);
+  }, [timerType]);
+
+  // For countdown timer - start a break
+  const startBreak = useCallback(() => {
+    const breakLength = getBreakLength();
+    setTime(breakLength * 60);
+    setIsComplete(false);
+    setIsRunning(true);
+  }, [energyMode, customBreakMinutes]);
+
+  // For countdown timer - start a new work session
+  const startNewSession = useCallback(() => {
+    setTime(getSessionLength() * 60);
+    setIsComplete(false);
+    setIsRunning(true);
+    setStartTime(new Date());
+  }, [energyMode, customMinutes]);
 
   const formatTime = useCallback((seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+    
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   }, []);
 
-  const progress = 1 - timeRemaining / totalSeconds;
+  // Get elapsed time in minutes (for recording sessions)
+  const getElapsedMinutes = useCallback(() => {
+    if (timerType === "stopwatch") {
+      return Math.ceil(elapsedSecondsRef.current / 60);
+    } else {
+      // For countdown, calculate how much time was used
+      const used = totalSeconds - time;
+      return Math.ceil(used / 60);
+    }
+  }, [timerType, totalSeconds, time]);
+
+  // Progress for countdown mode
+  const progress = timerType === "countdown" 
+    ? 1 - time / totalSeconds 
+    : 0; // Stopwatch doesn't have progress
 
   return {
-    timeRemaining,
-    formattedTime: formatTime(timeRemaining),
+    time,
+    formattedTime: formatTime(time),
     isRunning,
     isComplete,
     progress,
     startTime,
     config: getConfig(),
+    timerType,
+    getElapsedMinutes,
     start,
     pause,
     resume,
     reset,
     extend,
+    startBreak,
+    startNewSession,
   };
 };
 
