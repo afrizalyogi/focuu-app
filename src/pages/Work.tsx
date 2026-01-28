@@ -29,6 +29,7 @@ const Work = () => {
 
   const [phase, setPhase] = useState<SessionPhase>("setup");
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
+  const [customMinutes, setCustomMinutes] = useState(25);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState("");
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
@@ -42,11 +43,11 @@ const Work = () => {
   const activeTask = tasks.find(t => t.isActive);
 
   const handleSessionEnd = useCallback(() => {
-    const config = ENERGY_CONFIGS[energyMode];
-    recordSession(energyMode, activeTask?.text || null, config.sessionLength);
+    const sessionLength = energyMode === "custom" ? customMinutes : ENERGY_CONFIGS[energyMode].sessionLength;
+    recordSession(energyMode, activeTask?.text || null, sessionLength);
     stopTracking();
     setPhase("closure");
-  }, [energyMode, activeTask, recordSession, stopTracking]);
+  }, [energyMode, customMinutes, activeTask, recordSession, stopTracking]);
 
   const {
     formattedTime,
@@ -59,6 +60,7 @@ const Work = () => {
     extend,
   } = useSessionTimer({
     energyMode,
+    customMinutes,
     onSessionEnd: handleSessionEnd,
   });
 
@@ -167,6 +169,8 @@ const Work = () => {
                     <EnergyModeSelector
                       selected={energyMode}
                       onSelect={setEnergyMode}
+                      customMinutes={customMinutes}
+                      onCustomMinutesChange={setCustomMinutes}
                     />
                     <Button
                       onClick={handleStart}
