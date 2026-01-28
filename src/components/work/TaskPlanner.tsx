@@ -99,13 +99,13 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
         <p className="text-xs text-muted-foreground uppercase tracking-wider">
           Today's Tasks
         </p>
-        {isPro ? (
+      {isPro ? (
           <p className="text-xs text-muted-foreground">
             {activeTasks.length}/3 active
           </p>
         ) : (
-          <p className="text-xs text-muted-foreground">
-            Focus on one thing first.
+          <p className="text-xs text-muted-foreground/60">
+            One thing at a time.
           </p>
         )}
       </div>
@@ -191,14 +191,17 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
         </div>
       )}
 
-      {/* Upgrade hint for free users */}
-      {!isPro && tasks.length >= 1 && (
-        <button
-          onClick={onUpgradeClick}
-          className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-calm"
-        >
-          More room with Pro →
-        </button>
+      {/* Soft hint for free users - only after completing task */}
+      {!isPro && tasks.length >= 1 && activeTasks.length === 1 && (
+        <p className="text-xs text-muted-foreground/50 text-center leading-relaxed">
+          Selesaikan yang ini dulu.
+          <button
+            onClick={onUpgradeClick}
+            className="block mt-1 text-muted-foreground/40 hover:text-muted-foreground transition-calm"
+          >
+            Butuh lebih dari satu? Buktikan komitmenmu.
+          </button>
+        </p>
       )}
     </div>
   );

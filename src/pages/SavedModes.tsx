@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EnergyMode } from "@/hooks/useSessionTimer";
 
-const ENERGY_CONFIGS: Record<EnergyMode, { sessionLength: number; breakLength: number }> = {
+const ENERGY_CONFIGS: Record<Exclude<EnergyMode, "custom">, { sessionLength: number; breakLength: number }> = {
   low: { sessionLength: 15, breakLength: 10 },
   normal: { sessionLength: 30, breakLength: 5 },
   focused: { sessionLength: 45, breakLength: 5 },

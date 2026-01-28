@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 
-export type EnergyMode = "low" | "normal" | "focused";
+export type EnergyMode = "low" | "normal" | "focused" | "custom";
 
 interface SessionConfig {
   sessionLength: number; // in minutes
   breakLength: number; // in minutes
 }
 
-const ENERGY_CONFIGS: Record<EnergyMode, SessionConfig> = {
+const ENERGY_CONFIGS: Record<Exclude<EnergyMode, "custom">, SessionConfig> = {
   low: { sessionLength: 15, breakLength: 10 },
   normal: { sessionLength: 30, breakLength: 5 },
   focused: { sessionLength: 45, breakLength: 5 },
@@ -15,24 +15,37 @@ const ENERGY_CONFIGS: Record<EnergyMode, SessionConfig> = {
 
 interface UseSessionTimerOptions {
   energyMode: EnergyMode;
+  customMinutes?: number;
   onSessionEnd?: () => void;
 }
 
-export const useSessionTimer = ({ energyMode, onSessionEnd }: UseSessionTimerOptions) => {
-  const config = ENERGY_CONFIGS[energyMode];
-  const totalSeconds = config.sessionLength * 60;
+export const useSessionTimer = ({ energyMode, customMinutes = 25, onSessionEnd }: UseSessionTimerOptions) => {
+  const getSessionLength = () => {
+    if (energyMode === "custom") return customMinutes;
+    return ENERGY_CONFIGS[energyMode].sessionLength;
+  };
+
+  const getConfig = (): SessionConfig => {
+    if (energyMode === "custom") {
+      return { sessionLength: customMinutes, breakLength: 5 };
+    }
+    return ENERGY_CONFIGS[energyMode];
+  };
+
+  const sessionLength = getSessionLength();
+  const totalSeconds = sessionLength * 60;
 
   const [timeRemaining, setTimeRemaining] = useState(totalSeconds);
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
 
-  // Reset timer when energy mode changes
+  // Reset timer when energy mode or custom minutes changes
   useEffect(() => {
-    const newTotal = ENERGY_CONFIGS[energyMode].sessionLength * 60;
+    const newTotal = getSessionLength() * 60;
     setTimeRemaining(newTotal);
     setIsComplete(false);
-  }, [energyMode]);
+  }, [energyMode, customMinutes]);
 
   // Timer logic
   useEffect(() => {
@@ -68,11 +81,11 @@ export const useSessionTimer = ({ energyMode, onSessionEnd }: UseSessionTimerOpt
   }, []);
 
   const reset = useCallback(() => {
-    setTimeRemaining(ENERGY_CONFIGS[energyMode].sessionLength * 60);
+    setTimeRemaining(getSessionLength() * 60);
     setIsRunning(false);
     setIsComplete(false);
     setStartTime(null);
-  }, [energyMode]);
+  }, [energyMode, customMinutes]);
 
   const extend = useCallback((minutes: number) => {
     setTimeRemaining((prev) => prev + minutes * 60);
@@ -95,7 +108,7 @@ export const useSessionTimer = ({ energyMode, onSessionEnd }: UseSessionTimerOpt
     isComplete,
     progress,
     startTime,
-    config,
+    config: getConfig(),
     start,
     pause,
     resume,
