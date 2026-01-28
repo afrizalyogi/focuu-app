@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 interface SessionClosureProps {
   onStop: () => void;
   onContinue: () => void;
+  isPro?: boolean;
+  onUpgradeClick?: () => void;
 }
 
-const SessionClosure = ({ onStop, onContinue }: SessionClosureProps) => {
+const SessionClosure = ({ onStop, onContinue, isPro = false, onUpgradeClick }: SessionClosureProps) => {
   return (
     <div className="flex flex-col items-center gap-10 animate-fade-up">
       {/* Message - per PRD micro-copy */}
@@ -34,6 +36,16 @@ const SessionClosure = ({ onStop, onContinue }: SessionClosureProps) => {
           Done
         </Button>
       </div>
+
+      {/* Soft upgrade copy for free users - per PRD conversion strategy */}
+      {!isPro && onUpgradeClick && (
+        <button
+          onClick={onUpgradeClick}
+          className="text-sm text-muted-foreground/60 hover:text-muted-foreground transition-calm mt-4"
+        >
+          Save this rhythm for later →
+        </button>
+      )}
     </div>
   );
 };
