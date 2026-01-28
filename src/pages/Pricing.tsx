@@ -76,18 +76,6 @@ const Pricing = () => {
             </p>
           </div>
 
-          {/* What focuu is not */}
-          <div className="mb-8 p-4 rounded-xl bg-secondary/30 border border-border/30">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
-              What focuu is not
-            </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>· A productivity tracker</li>
-              <li>· A social platform</li>
-              <li>· A gamified challenge</li>
-            </ul>
-          </div>
-
           {/* Pro features */}
           <div className="mb-10">
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">

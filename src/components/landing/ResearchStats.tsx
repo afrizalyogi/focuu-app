@@ -69,6 +69,15 @@ const ResearchStats = () => {
 };
 
 export const ExponentialGrowthSection = () => {
+  const chartData = [
+    { month: "M1", height: 20, value: "30h", y: 200 },
+    { month: "M2", height: 35, value: "60h", y: 165 },
+    { month: "M3", height: 50, value: "90h", y: 130 },
+    { month: "M6", height: 75, value: "180h", y: 80 },
+    { month: "Y1", height: 120, value: "365h", y: 40 },
+    { month: "Y2", height: 180, value: "730h", y: 10 },
+  ];
+
   return (
     <section className="py-20 px-6 relative overflow-hidden">
       {/* Glass background */}
@@ -87,49 +96,131 @@ export const ExponentialGrowthSection = () => {
           </p>
         </div>
 
-        {/* Exponential Chart */}
+        {/* Exponential Chart - SVG Based */}
         <div className="relative p-8 rounded-3xl bg-card/30 backdrop-blur-xl border border-border/30 animate-fade-up">
-          <div className="flex items-end justify-between gap-4 h-64 px-4">
-            {/* Chart bars with exponential growth */}
-            {[
-              { month: "M1", height: 8, value: "30h" },
-              { month: "M2", height: 15, value: "60h" },
-              { month: "M3", height: 25, value: "90h" },
-              { month: "M6", height: 45, value: "180h" },
-              { month: "Y1", height: 75, value: "365h" },
-              { month: "Y2", height: 100, value: "730h" },
-            ].map((bar, index) => (
-              <div key={bar.month} className="flex-1 flex flex-col items-center gap-2">
-                <span className="text-xs text-primary font-medium">{bar.value}</span>
-                <div 
-                  className="w-full rounded-t-lg transition-all duration-700 relative group"
-                  style={{ 
-                    height: `${bar.height}%`,
-                    background: `linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.5) 100%)`,
-                    animationDelay: `${index * 100}ms`,
-                  }}
-                >
-                  {/* Glow effect */}
-                  <div 
-                    className="absolute inset-0 rounded-t-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{
-                      boxShadow: "0 0 30px hsl(var(--primary) / 0.5), inset 0 0 20px hsl(var(--primary) / 0.2)",
-                    }}
-                  />
-                </div>
-                <span className="text-xs text-muted-foreground">{bar.month}</span>
-              </div>
-            ))}
-          </div>
-
           {/* Trend line indicator */}
-          <div className="absolute top-6 right-6 flex items-center gap-2 text-primary">
+          <div className="absolute top-6 right-6 flex items-center gap-2 text-primary z-10">
             <TrendingUp className="w-5 h-5" />
             <span className="text-sm font-medium">Exponential growth</span>
           </div>
 
+          <div className="relative h-72 mt-4">
+            <svg 
+              viewBox="0 0 600 220" 
+              className="w-full h-full"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {/* Grid lines */}
+              <defs>
+                <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="hsl(231, 94%, 67%)" stopOpacity="1" />
+                  <stop offset="100%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.3" />
+                </linearGradient>
+                <linearGradient id="curveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="hsl(280, 100%, 70%)" stopOpacity="1" />
+                </linearGradient>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                  <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              {/* Horizontal grid lines */}
+              {[0, 50, 100, 150, 200].map((y) => (
+                <line
+                  key={y}
+                  x1="50"
+                  y1={y + 10}
+                  x2="570"
+                  y2={y + 10}
+                  stroke="hsl(220, 13%, 15%)"
+                  strokeWidth="1"
+                  strokeDasharray="4,4"
+                />
+              ))}
+
+              {/* Exponential curve */}
+              <path
+                d="M 70 200 Q 120 190, 160 175 T 250 140 T 340 90 T 430 50 T 530 15"
+                fill="none"
+                stroke="url(#curveGradient)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                filter="url(#glow)"
+                className="animate-[draw_2s_ease-out_forwards]"
+              />
+
+              {/* Area under curve */}
+              <path
+                d="M 70 200 Q 120 190, 160 175 T 250 140 T 340 90 T 430 50 T 530 15 L 530 210 L 70 210 Z"
+                fill="url(#barGradient)"
+                opacity="0.15"
+              />
+
+              {/* Data points with bars */}
+              {chartData.map((point, index) => {
+                const x = 70 + index * 92;
+                const barHeight = point.height;
+                return (
+                  <g key={point.month}>
+                    {/* Bar */}
+                    <rect
+                      x={x - 20}
+                      y={210 - barHeight}
+                      width="40"
+                      height={barHeight}
+                      fill="url(#barGradient)"
+                      rx="4"
+                      className="transition-all duration-500 hover:opacity-80"
+                      style={{ animationDelay: `${index * 150}ms` }}
+                    />
+                    
+                    {/* Glow circle on curve */}
+                    <circle
+                      cx={x}
+                      cy={point.y + 10}
+                      r="6"
+                      fill="hsl(231, 94%, 67%)"
+                      filter="url(#glow)"
+                    />
+                    <circle
+                      cx={x}
+                      cy={point.y + 10}
+                      r="3"
+                      fill="white"
+                    />
+
+                    {/* Value label */}
+                    <text
+                      x={x}
+                      y={210 - barHeight - 8}
+                      textAnchor="middle"
+                      className="fill-primary text-[11px] font-medium"
+                    >
+                      {point.value}
+                    </text>
+
+                    {/* Month label */}
+                    <text
+                      x={x}
+                      y={230}
+                      textAnchor="middle"
+                      className="fill-muted-foreground text-[11px]"
+                    >
+                      {point.month}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
           {/* Comparison text */}
-          <div className="mt-8 pt-6 border-t border-border/30 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="mt-6 pt-6 border-t border-border/30 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="text-center p-4 rounded-xl bg-red-500/10 border border-red-500/20">
               <p className="text-3xl font-bold text-red-400 mb-1">~50h</p>
               <p className="text-sm text-muted-foreground">Average person's yearly deep work</p>
