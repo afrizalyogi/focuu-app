@@ -17,6 +17,9 @@ import SessionNotes from "@/components/work/SessionNotes";
 import LiveFocusChat from "@/components/work/LiveFocusChat";
 import HistoryMiniView from "@/components/work/HistoryMiniView";
 import UpgradePrompt from "@/components/work/UpgradePrompt";
+import GlassOrbs from "@/components/landing/GlassOrbs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Crown, Settings } from "lucide-react";
 
 type SessionPhase = "setup" | "working" | "closure";
 
@@ -129,11 +132,19 @@ const Work = () => {
     setShowUpgradePrompt(true);
   };
 
+  const getUserInitials = () => {
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "?";
+  };
+
   // Closure phase - full screen
   if (phase === "closure") {
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex items-center justify-between p-4 md:p-6">
+        <GlassOrbs />
+        <header className="relative z-10 flex items-center justify-between p-4 md:p-6">
           <button
             onClick={handleBack}
             className="text-sm text-muted-foreground hover:text-foreground transition-calm"
@@ -142,7 +153,7 @@ const Work = () => {
           </button>
           <PresenceIndicator count={presenceCount} />
         </header>
-        <main className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-20">
           <SessionClosure
             onStop={handleStop}
             onContinue={handleContinue}
@@ -160,19 +171,48 @@ const Work = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Glass background */}
+      <GlassOrbs />
+
       {/* Header */}
-      <header className="flex items-center justify-between p-4 md:p-6">
+      <header className="relative z-10 flex items-center justify-between p-4 md:p-6">
         <button
           onClick={handleBack}
           className="text-sm text-muted-foreground hover:text-foreground transition-calm"
         >
           {phase === "setup" ? "← Back" : "← End session"}
         </button>
-        <PresenceIndicator count={presenceCount} />
+        
+        <div className="flex items-center gap-4">
+          <PresenceIndicator count={presenceCount} />
+          
+          {/* User indicator */}
+          {user && (
+            <button 
+              onClick={() => navigate("/app")}
+              className="flex items-center gap-2 group"
+            >
+              <Avatar className="h-8 w-8 border-2 border-primary/20 group-hover:border-primary/50 transition-calm">
+                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                  {getUserInitials()}
+                </AvatarFallback>
+              </Avatar>
+              {isPro && <Crown className="w-4 h-4 text-primary" />}
+            </button>
+          )}
+          
+          {/* Settings */}
+          <button
+            onClick={() => navigate("/settings")}
+            className="p-2 text-muted-foreground hover:text-foreground transition-calm"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
       </header>
 
       {/* Main content - Unified Workspace */}
-      <main className="flex-1 px-4 md:px-6 pb-10">
+      <main className="relative z-10 flex-1 px-4 md:px-6 pb-10">
         {/* Outside work hours message for Pro users */}
         {outsideHours && phase === "setup" && (
           <div className="flex items-center justify-center min-h-[60vh]">

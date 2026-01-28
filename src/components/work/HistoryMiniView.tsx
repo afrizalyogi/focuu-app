@@ -36,15 +36,15 @@ const HistoryMiniView = ({ isPro, onUpgradeClick }: HistoryMiniViewProps) => {
   ).size;
 
   return (
-    <div className="w-full space-y-3">
-      <p className="text-xs text-muted-foreground uppercase tracking-wider">
+    <div className="w-full space-y-3 p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/30">
+      <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
         Presence
       </p>
 
       <div className="relative">
         <div 
           className={cn(
-            "grid grid-cols-3 gap-3 p-4 rounded-lg bg-secondary/50",
+            "grid grid-cols-3 gap-3 p-4 rounded-xl bg-secondary/30 border border-border/30",
             !isPro && "blur-[3px]"
           )}
         >
@@ -66,9 +66,9 @@ const HistoryMiniView = ({ isPro, onUpgradeClick }: HistoryMiniViewProps) => {
         {!isPro && (
           <div 
             onClick={onUpgradeClick}
-            className="absolute inset-0 flex items-center justify-center cursor-pointer group rounded-lg"
+            className="absolute inset-0 flex items-center justify-center cursor-pointer group rounded-xl"
           >
-            <p className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-calm">
+            <p className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-calm px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm">
               Your work history starts here →
             </p>
           </div>

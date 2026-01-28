@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { Plus } from "lucide-react";
+import TaskItem from "./TaskItem";
 
 export type TaskCategory = "deep" | "support" | "light";
 
@@ -18,22 +20,11 @@ interface TaskPlannerProps {
   onUpgradeClick: () => void;
 }
 
-const CATEGORY_LABELS: Record<TaskCategory, string> = {
-  deep: "Deep",
-  support: "Support",
-  light: "Light",
-};
-
-const CATEGORY_COLORS: Record<TaskCategory, string> = {
-  deep: "bg-primary/20 text-primary",
-  support: "bg-secondary text-secondary-foreground",
-  light: "bg-muted text-muted-foreground",
-};
-
 const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlannerProps) => {
   const [newTaskText, setNewTaskText] = useState("");
 
   const activeTasks = tasks.filter(t => t.isActive);
+  const inactiveTasks = tasks.filter(t => !t.isActive);
   const maxActiveTasks = isPro ? 3 : 1;
   const canAddActiveTask = activeTasks.length < maxActiveTasks;
 
@@ -71,12 +62,10 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
     if (!task) return;
 
     if (task.isActive) {
-      // Deactivate
       onTasksChange(tasks.map(t => 
         t.id === taskId ? { ...t, isActive: false } : t
       ));
     } else {
-      // Check if can activate
       if (!canAddActiveTask) {
         if (!isPro) {
           onUpgradeClick();
@@ -93,115 +82,155 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
     onTasksChange(tasks.filter(t => t.id !== taskId));
   };
 
+  const changeCategory = (taskId: string, category: TaskCategory) => {
+    onTasksChange(tasks.map(t => 
+      t.id === taskId ? { ...t, category } : t
+    ));
+  };
+
+  const moveTask = (taskId: string, direction: "up" | "down") => {
+    const activeTaskIds = activeTasks.map(t => t.id);
+    const currentIndex = activeTaskIds.indexOf(taskId);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= activeTaskIds.length) return;
+
+    // Swap positions
+    const newActiveTaskIds = [...activeTaskIds];
+    [newActiveTaskIds[currentIndex], newActiveTaskIds[newIndex]] = 
+    [newActiveTaskIds[newIndex], newActiveTaskIds[currentIndex]];
+
+    // Reorder tasks array
+    const reorderedTasks = [
+      ...newActiveTaskIds.map(id => tasks.find(t => t.id === id)!),
+      ...inactiveTasks,
+    ];
+    onTasksChange(reorderedTasks);
+  };
+
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-4 p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/30">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">
-          Today's Tasks
+        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+          Today's Focus
         </p>
-      {isPro ? (
-          <p className="text-xs text-muted-foreground">
-            {activeTasks.length}/3 active
-          </p>
+        {isPro ? (
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {[...Array(3)].map((_, i) => (
+                <div 
+                  key={i}
+                  className={cn(
+                    "w-2 h-2 rounded-full transition-all",
+                    i < activeTasks.length ? "bg-primary" : "bg-border"
+                  )}
+                />
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {activeTasks.length}/3
+            </span>
+          </div>
         ) : (
           <p className="text-xs text-muted-foreground/60">
-            One thing at a time.
+            One thing at a time
           </p>
         )}
       </div>
 
-      {/* Active Tasks - Bento Style for Pro */}
+      {/* Active Tasks */}
       {activeTasks.length > 0 && (
-        <div className={cn(
-          "grid gap-2",
-          isPro && activeTasks.length > 1 ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1"
-        )}>
-          {activeTasks.map((task) => (
-            <div
+        <div className="space-y-2">
+          {activeTasks.map((task, index) => (
+            <TaskItem
               key={task.id}
-              className={cn(
-                "p-3 rounded-lg border border-border/50 transition-calm",
-                CATEGORY_COLORS[task.category]
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <span className="text-[10px] uppercase tracking-wider opacity-60">
-                    {CATEGORY_LABELS[task.category]}
-                  </span>
-                  <p className="text-sm font-medium truncate">{task.text}</p>
-                </div>
-                <button
-                  onClick={() => toggleTaskActive(task.id)}
-                  className="text-xs opacity-50 hover:opacity-100 transition-calm"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
+              task={task}
+              onToggleActive={toggleTaskActive}
+              onRemove={removeTask}
+              onCategoryChange={changeCategory}
+              onMoveUp={() => moveTask(task.id, "up")}
+              onMoveDown={() => moveTask(task.id, "down")}
+              isFirst={index === 0}
+              isLast={index === activeTasks.length - 1}
+              isPro={isPro}
+            />
           ))}
         </div>
       )}
 
+      {/* Empty state */}
+      {activeTasks.length === 0 && (
+        <div className="py-8 text-center">
+          <p className="text-muted-foreground/60 text-sm mb-2">
+            What will you focus on today?
+          </p>
+        </div>
+      )}
+
       {/* Task Input */}
-      <div className="relative">
+      <div className="relative group">
         <Input
           type="text"
-          placeholder={activeTasks.length === 0 ? "What will you work on?" : "Add another task..."}
+          placeholder={activeTasks.length === 0 ? "Add your main task..." : "Add another task..."}
           value={newTaskText}
           onChange={(e) => setNewTaskText(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={!isPro && tasks.length >= 1}
           className={cn(
-            "bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-primary pr-16",
+            "bg-secondary/50 border border-border/50 focus-visible:ring-1 focus-visible:ring-primary pr-12 transition-all",
+            "placeholder:text-muted-foreground/40",
             !isPro && tasks.length >= 1 && "opacity-50 cursor-not-allowed"
           )}
         />
-        {newTaskText && (
-          <button
-            onClick={handleAddTask}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-calm"
-          >
-            Add
-          </button>
-        )}
+        <button
+          onClick={handleAddTask}
+          disabled={!newTaskText.trim() || (!isPro && tasks.length >= 1)}
+          className={cn(
+            "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all",
+            newTaskText.trim() 
+              ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+              : "text-muted-foreground/40"
+          )}
+        >
+          <Plus className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Inactive Tasks (greyed out) */}
-      {tasks.filter(t => !t.isActive).length > 0 && (
-        <div className="space-y-1">
-          {tasks.filter(t => !t.isActive).map((task) => (
-            <div
-              key={task.id}
-              onClick={() => toggleTaskActive(task.id)}
-              className="flex items-center justify-between p-2 rounded text-sm text-muted-foreground/50 hover:text-muted-foreground transition-calm cursor-pointer group"
-            >
-              <span className="truncate">{task.text}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeTask(task.id);
-                }}
-                className="opacity-0 group-hover:opacity-50 hover:opacity-100 text-xs transition-calm"
-              >
-                ×
-              </button>
-            </div>
-          ))}
+      {/* Inactive Tasks */}
+      {inactiveTasks.length > 0 && (
+        <div className="pt-2 border-t border-border/20">
+          <p className="text-[10px] text-muted-foreground/40 uppercase tracking-wider mb-2">
+            Backlog
+          </p>
+          <div className="space-y-0.5">
+            {inactiveTasks.map((task) => (
+              <TaskItem
+                key={task.id}
+                task={task}
+                onToggleActive={toggleTaskActive}
+                onRemove={removeTask}
+                onCategoryChange={changeCategory}
+                isPro={isPro}
+              />
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Soft hint for free users - only after completing task */}
+      {/* Upgrade hint for free users */}
       {!isPro && tasks.length >= 1 && activeTasks.length === 1 && (
-        <p className="text-xs text-muted-foreground/50 text-center leading-relaxed">
-          Selesaikan yang ini dulu.
-          <button
-            onClick={onUpgradeClick}
-            className="block mt-1 text-muted-foreground/40 hover:text-muted-foreground transition-calm"
-          >
-            Butuh lebih dari satu? Buktikan komitmenmu.
-          </button>
-        </p>
+        <div className="pt-3 border-t border-border/20 text-center">
+          <p className="text-xs text-muted-foreground/40 leading-relaxed">
+            Complete this first.
+            <button
+              onClick={onUpgradeClick}
+              className="block w-full mt-1 text-primary/60 hover:text-primary transition-calm"
+            >
+              Need more? Go Pro.
+            </button>
+          </p>
+        </div>
       )}
     </div>
   );
