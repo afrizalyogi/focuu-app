@@ -48,13 +48,15 @@ const Navbar = ({ showPresence }: NavbarProps) => {
         {/* Presence indicator slot */}
         {showPresence}
 
-        {/* Navigation links */}
-        <button
-          onClick={() => navigate("/pricing")}
-          className="text-sm text-muted-foreground hover:text-foreground transition-calm"
-        >
-          Pricing
-        </button>
+        {/* Navigation links - hide Pricing for Pro users */}
+        {!isPro && (
+          <button
+            onClick={() => navigate("/pricing")}
+            className="text-sm text-muted-foreground hover:text-foreground transition-calm"
+          >
+            Pricing
+          </button>
+        )}
 
         {user ? (
           <>
@@ -86,7 +88,7 @@ const Navbar = ({ showPresence }: NavbarProps) => {
                   <User className="mr-2 h-4 w-4" />
                   Dashboard
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/settings")}>
+                <DropdownMenuItem onClick={() => navigate("/app/settings")}>
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
