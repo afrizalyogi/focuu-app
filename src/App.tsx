@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Landing from "./pages/Landing";
 import Work from "./pages/Work";
 import Auth from "./pages/Auth";
+import ForgotPassword from "./pages/ForgotPassword";
 import AppDashboard from "./pages/AppDashboard";
 import History from "./pages/History";
 import SavedModes from "./pages/SavedModes";
@@ -42,6 +43,7 @@ const AppRoutes = () => (
     <Route path="/" element={<Landing />} />
     <Route path="/work" element={<Work />} />
     <Route path="/auth" element={<Auth />} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/pricing" element={<Pricing />} />
     <Route path="/privacy" element={<Privacy />} />
     <Route path="/terms" element={<Terms />} />

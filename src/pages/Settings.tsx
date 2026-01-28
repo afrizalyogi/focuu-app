@@ -1,48 +1,44 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSettings, ThemeMode } from "@/hooks/useSettings";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, User, Clock, Shield } from "lucide-react";
-
-interface UserSettings {
-  autoStart: boolean;
-  workHoursEnabled: boolean;
-  workHoursStart: string;
-  workHoursEnd: string;
-}
-
-const SETTINGS_KEY = "focuu_settings";
+import { ArrowLeft, User, Clock, Shield, Palette, Bell, Volume2 } from "lucide-react";
+import { SettingsPageSkeleton } from "@/components/ui/skeleton-loaders";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
-
-  const [settings, setSettings] = useState<UserSettings>({
-    autoStart: false,
-    workHoursEnabled: false,
-    workHoursStart: "09:00",
-    workHoursEnd: "18:00",
-  });
-
-  useEffect(() => {
-    const stored = localStorage.getItem(SETTINGS_KEY);
-    if (stored) {
-      try {
-        setSettings(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem(SETTINGS_KEY);
-      }
-    }
-  }, []);
-
-  const updateSettings = (updates: Partial<UserSettings>) => {
-    const newSettings = { ...settings, ...updates };
-    setSettings(newSettings);
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
-  };
+  const { settings, isLoading, updateSettings } = useSettings();
 
   const isPro = profile?.is_pro ?? false;
+
+  const themeOptions: { value: ThemeMode; label: string; description: string }[] = [
+    { value: "dark", label: "Dark", description: "Default dark theme" },
+    { value: "light", label: "Light", description: "Bright light theme" },
+    { value: "book", label: "Book", description: "Warm sepia tones" },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <div className="fixed inset-0 bg-gradient-to-b from-primary/3 via-transparent to-transparent pointer-events-none" />
+        <header className="relative z-10 p-4 md:p-6">
+          <button
+            onClick={() => navigate("/app")}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+        </header>
+        <main className="relative z-10 flex-1 px-6 pb-20 max-w-lg mx-auto w-full">
+          <SettingsPageSkeleton />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -93,6 +89,79 @@ const Settings = () => {
                   Upgrade to Pro
                 </Button>
               )}
+            </div>
+          </section>
+
+          {/* Theme section */}
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Palette className="w-4 h-4 text-primary" />
+              <h2 className="text-sm text-muted-foreground uppercase tracking-wider font-medium">
+                Theme
+              </h2>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {themeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => updateSettings({ theme: option.value })}
+                  className={`p-4 rounded-xl border transition-calm text-left ${
+                    settings.theme === option.value
+                      ? "bg-primary/10 border-primary/50"
+                      : "bg-card/50 border-border/30 hover:border-border/50"
+                  }`}
+                >
+                  <p className={`font-medium ${settings.theme === option.value ? "text-primary" : "text-foreground"}`}>
+                    {option.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {option.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Notifications section */}
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Bell className="w-4 h-4 text-primary" />
+              <h2 className="text-sm text-muted-foreground uppercase tracking-wider font-medium">
+                Notifications
+              </h2>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-card/50 border border-border/30">
+                <div>
+                  <p className="text-foreground font-medium">Push notifications</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Get notified when breaks end
+                  </p>
+                </div>
+                <Switch
+                  checked={settings.notificationsEnabled}
+                  onCheckedChange={(checked) =>
+                    updateSettings({ notificationsEnabled: checked })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between p-4 rounded-xl bg-card/50 border border-border/30">
+                <div className="flex items-center gap-3">
+                  <Volume2 className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-foreground font-medium">Sound</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Play sounds for timer events
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={settings.soundEnabled}
+                  onCheckedChange={(checked) =>
+                    updateSettings({ soundEnabled: checked })
+                  }
+                />
+              </div>
             </div>
           </section>
 

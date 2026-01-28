@@ -2,12 +2,16 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Timer, ArrowLeft } from "lucide-react";
+import { Calendar, Clock, Timer, ArrowLeft, Download } from "lucide-react";
+import { HistoryPageSkeleton } from "@/components/ui/skeleton-loaders";
+import ExportDialog from "@/components/history/ExportDialog";
+import { useState } from "react";
 
 const History = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { getDaySummaries, getTotalStats } = useSessionHistory();
+  const { sessions, isLoading, getDaySummaries, getTotalStats } = useSessionHistory();
+  const [showExport, setShowExport] = useState(false);
 
   const isPro = profile?.is_pro ?? false;
   const stats = getTotalStats();
@@ -15,13 +19,33 @@ const History = () => {
 
   const isLimited = !isPro;
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <div className="fixed inset-0 bg-gradient-to-b from-primary/3 via-transparent to-transparent pointer-events-none" />
+        <header className="relative z-10 p-4 md:p-6">
+          <button
+            onClick={() => navigate("/app")}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+        </header>
+        <main className="relative z-10 flex-1 px-6 pb-20 max-w-lg mx-auto w-full">
+          <HistoryPageSkeleton />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Subtle background gradient */}
       <div className="fixed inset-0 bg-gradient-to-b from-primary/3 via-transparent to-transparent pointer-events-none" />
 
       {/* Header */}
-      <header className="relative z-10 p-4 md:p-6">
+      <header className="relative z-10 p-4 md:p-6 flex items-center justify-between">
         <button
           onClick={() => navigate("/app")}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
@@ -29,6 +53,18 @@ const History = () => {
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
+        
+        {isPro && sessions.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowExport(true)}
+            className="gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </Button>
+        )}
       </header>
 
       {/* Main content */}
@@ -120,6 +156,12 @@ const History = () => {
           )}
         </div>
       </main>
+
+      <ExportDialog
+        open={showExport}
+        onOpenChange={setShowExport}
+        sessions={sessions}
+      />
     </div>
   );
 };
