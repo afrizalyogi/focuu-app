@@ -15,11 +15,10 @@ import OutsideHoursMessage from "@/components/session/OutsideHoursMessage";
 import TaskPlanner, { Task } from "@/components/work/TaskPlanner";
 import SessionNotes from "@/components/work/SessionNotes";
 import LiveFocusChat from "@/components/work/LiveFocusChat";
-import HistoryMiniView from "@/components/work/HistoryMiniView";
 import UpgradePrompt from "@/components/work/UpgradePrompt";
 import GlassOrbs from "@/components/landing/GlassOrbs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Crown, Settings } from "lucide-react";
+import { Crown, Settings, Home, Pause, Play, Square } from "lucide-react";
 
 type SessionPhase = "setup" | "working" | "closure";
 
@@ -50,7 +49,6 @@ const Work = () => {
     if (isPro && !modesLoading && !modeApplied) {
       const defaultMode = getDefaultMode();
       if (defaultMode) {
-        // Handle custom mode - if sessionLength doesn't match standard modes
         const standardLengths = { low: 15, normal: 30, focused: 45 };
         const matchingMode = Object.entries(standardLengths).find(
           ([_, length]) => length === defaultMode.sessionLength
@@ -67,7 +65,6 @@ const Work = () => {
     }
   }, [isPro, modesLoading, modeApplied, getDefaultMode]);
 
-  // Get active task for session display
   const activeTask = tasks.find(t => t.isActive);
 
   const handleSessionEnd = useCallback(() => {
@@ -120,14 +117,6 @@ const Work = () => {
     setPhase("working");
   };
 
-  const handleBack = () => {
-    if (phase === "working" || phase === "closure") {
-      handleStop();
-    } else {
-      navigate("/");
-    }
-  };
-
   const handleUpgradeClick = () => {
     setShowUpgradePrompt(true);
   };
@@ -139,20 +128,19 @@ const Work = () => {
     return "?";
   };
 
-  // Closure phase - full screen
+  // Closure phase - full screen centered
   if (phase === "closure") {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <GlassOrbs />
-        <header className="relative z-10 flex items-center justify-between p-4 md:p-6">
-          <button
-            onClick={handleBack}
-            className="text-sm text-muted-foreground hover:text-foreground transition-calm"
-          >
-            ← Back
-          </button>
-          <PresenceIndicator count={presenceCount} />
-        </header>
+        <WorkHeader 
+          user={user}
+          isPro={isPro}
+          presenceCount={presenceCount}
+          onBack={handleStop}
+          backLabel="← Back"
+          getUserInitials={getUserInitials}
+        />
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-20">
           <SessionClosure
             onStop={handleStop}
@@ -171,154 +159,192 @@ const Work = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Glass background */}
       <GlassOrbs />
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between p-4 md:p-6">
-        <button
-          onClick={handleBack}
-          className="text-sm text-muted-foreground hover:text-foreground transition-calm"
-        >
-          {phase === "setup" ? "← Back" : "← End session"}
-        </button>
-        
-        <div className="flex items-center gap-4">
-          <PresenceIndicator count={presenceCount} />
-          
-          {/* User indicator */}
-          {user && (
-            <button 
-              onClick={() => navigate("/app")}
-              className="flex items-center gap-2 group"
-            >
-              <Avatar className="h-8 w-8 border-2 border-primary/20 group-hover:border-primary/50 transition-calm">
-                <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                  {getUserInitials()}
-                </AvatarFallback>
-              </Avatar>
-              {isPro && <Crown className="w-4 h-4 text-primary" />}
-            </button>
-          )}
-          
-          {/* Settings */}
-          <button
-            onClick={() => navigate("/settings")}
-            className="p-2 text-muted-foreground hover:text-foreground transition-calm"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+      {/* Minimal floating header */}
+      <WorkHeader 
+        user={user}
+        isPro={isPro}
+        presenceCount={presenceCount}
+        onBack={phase === "setup" ? () => navigate("/") : handleStop}
+        backLabel={phase === "setup" ? "← Home" : "← End"}
+        getUserInitials={getUserInitials}
+      />
 
-      {/* Main content - Unified Workspace */}
-      <main className="relative z-10 flex-1 px-4 md:px-6 pb-10">
-        {/* Outside work hours message for Pro users */}
+      {/* Main content - Centered "Always On" Design */}
+      <main className="relative z-10 flex-1 flex items-center justify-center px-4 md:px-6 pb-6">
         {outsideHours && phase === "setup" && (
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <OutsideHoursMessage
-              workHoursStart={settings.workHoursStart}
-              workHoursEnd={settings.workHoursEnd}
-            />
-          </div>
+          <OutsideHoursMessage
+            workHoursStart={settings.workHoursStart}
+            workHoursEnd={settings.workHoursEnd}
+          />
         )}
 
         {!outsideHours && (
-          <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-            {/* LEFT COLUMN - Session Core + Task Planner */}
-            <div className="lg:col-span-7 space-y-8">
-              {/* AREA 1: SESSION CORE */}
-              <div className="flex flex-col items-center gap-8 animate-fade-up">
-                {phase === "setup" && (
-                  <>
+          <div className="w-full max-w-5xl mx-auto">
+            {/* Working Phase - Ultra minimal, centered timer */}
+            {phase === "working" && (
+              <div className="flex flex-col items-center justify-center min-h-[70vh] animate-fade-in">
+                {/* Active task - subtle context */}
+                {activeTask && (
+                  <p className="text-sm text-muted-foreground/80 mb-8 max-w-md text-center tracking-wide">
+                    {activeTask.text}
+                  </p>
+                )}
+
+                {/* Giant centered timer */}
+                <div className="relative mb-12">
+                  <SessionTimerDisplay
+                    formattedTime={formattedTime}
+                    isRunning={isRunning}
+                    progress={progress}
+                  />
+                </div>
+
+                {/* Minimal controls */}
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handlePauseResume}
+                    className="w-14 h-14 rounded-full border border-border/50 bg-card/30 backdrop-blur-sm hover:bg-card/50 transition-calm"
+                  >
+                    {isRunning ? (
+                      <Pause className="w-6 h-6 text-muted-foreground" />
+                    ) : (
+                      <Play className="w-6 h-6 text-primary" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleStop}
+                    className="w-12 h-12 rounded-full border border-border/30 bg-card/20 backdrop-blur-sm hover:bg-destructive/20 hover:border-destructive/30 transition-calm"
+                  >
+                    <Square className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                </div>
+
+                {/* Breathing presence indicator */}
+                <div className="mt-16 animate-breathe">
+                  <PresenceIndicator count={presenceCount} />
+                </div>
+              </div>
+            )}
+
+            {/* Setup Phase - Dashboard-like grid */}
+            {phase === "setup" && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 animate-fade-up">
+                {/* LEFT: Timer & Task Planning */}
+                <div className="lg:col-span-7 space-y-6">
+                  {/* Session Setup Card - Hero */}
+                  <div className="p-8 rounded-3xl bg-card/40 backdrop-blur-xl border border-border/30 text-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-6">
+                      Ready to focus
+                    </p>
+                    
                     <EnergyModeSelector
                       selected={energyMode}
                       onSelect={setEnergyMode}
                       customMinutes={customMinutes}
                       onCustomMinutesChange={setCustomMinutes}
                     />
+                    
                     <Button
                       onClick={handleStart}
                       size="lg"
-                      className="px-10 py-6 text-base font-medium transition-calm hover:scale-[1.02]"
+                      className="mt-8 px-12 py-6 text-base font-medium rounded-full transition-calm hover:scale-[1.02] bg-primary/90 hover:bg-primary"
                     >
-                      Start
-                    </Button>
-                  </>
-                )}
-
-                {phase === "working" && (
-                  <div className="flex flex-col items-center gap-6 animate-fade-in">
-                    {activeTask && (
-                      <p className="text-sm text-muted-foreground max-w-sm text-center">
-                        {activeTask.text}
-                      </p>
-                    )}
-                    <SessionTimerDisplay
-                      formattedTime={formattedTime}
-                      isRunning={isRunning}
-                      progress={progress}
-                    />
-                    <Button
-                      variant="ghost"
-                      onClick={handlePauseResume}
-                      className="text-muted-foreground hover:text-foreground transition-calm"
-                    >
-                      {isRunning ? "Pause" : "Resume"}
+                      Begin Session
                     </Button>
                   </div>
-                )}
-              </div>
 
-              {/* AREA 2: TASK PLANNER */}
-              <div className="animate-fade-up" style={{ animationDelay: "100ms" }}>
-                <TaskPlanner
-                  isPro={isPro}
-                  tasks={tasks}
-                  onTasksChange={setTasks}
-                  onUpgradeClick={handleUpgradeClick}
-                />
-              </div>
+                  {/* Task Planner */}
+                  <TaskPlanner
+                    isPro={isPro}
+                    tasks={tasks}
+                    onTasksChange={setTasks}
+                    onUpgradeClick={handleUpgradeClick}
+                  />
+                </div>
 
-              {/* AREA 3: SESSION NOTES */}
-              <div className="animate-fade-up" style={{ animationDelay: "200ms" }}>
-                <SessionNotes
-                  isPro={isPro}
-                  notes={notes}
-                  onNotesChange={setNotes}
-                  onUpgradeClick={handleUpgradeClick}
-                />
-              </div>
-            </div>
+                {/* RIGHT: Social & Notes */}
+                <div className="lg:col-span-5 space-y-6">
+                  {/* Live Focus Chat */}
+                  <LiveFocusChat
+                    isPro={isPro}
+                    onUpgradeClick={handleUpgradeClick}
+                  />
 
-            {/* RIGHT COLUMN - Chat + History */}
-            <div className="lg:col-span-5 space-y-6">
-              {/* AREA 4: LIVE FOCUS CHAT */}
-              <div className="animate-fade-up" style={{ animationDelay: "150ms" }}>
-                <LiveFocusChat
-                  isPro={isPro}
-                  onUpgradeClick={handleUpgradeClick}
-                />
+                  {/* Session Notes */}
+                  <SessionNotes
+                    isPro={isPro}
+                    notes={notes}
+                    onNotesChange={setNotes}
+                    onUpgradeClick={handleUpgradeClick}
+                  />
+                </div>
               </div>
-
-              {/* AREA 5: HISTORY MINI VIEW */}
-              <div className="animate-fade-up" style={{ animationDelay: "250ms" }}>
-                <HistoryMiniView
-                  isPro={isPro}
-                  onUpgradeClick={handleUpgradeClick}
-                />
-              </div>
-            </div>
+            )}
           </div>
         )}
       </main>
 
-      {/* Upgrade Prompt Dialog */}
       <UpgradePrompt 
         open={showUpgradePrompt} 
         onOpenChange={setShowUpgradePrompt} 
       />
     </div>
+  );
+};
+
+// Extracted header component for cleaner code
+interface WorkHeaderProps {
+  user: any;
+  isPro: boolean;
+  presenceCount: number;
+  onBack: () => void;
+  backLabel: string;
+  getUserInitials: () => string;
+}
+
+const WorkHeader = ({ user, isPro, presenceCount, onBack, backLabel, getUserInitials }: WorkHeaderProps) => {
+  const navigate = useNavigate();
+  
+  return (
+    <header className="relative z-10 flex items-center justify-between p-4 md:p-6">
+      <button
+        onClick={onBack}
+        className="text-sm text-muted-foreground hover:text-foreground transition-calm"
+      >
+        {backLabel}
+      </button>
+      
+      <div className="flex items-center gap-4">
+        <PresenceIndicator count={presenceCount} />
+        
+        {user && (
+          <button 
+            onClick={() => navigate("/app")}
+            className="flex items-center gap-2 group"
+          >
+            <Avatar className="h-8 w-8 border-2 border-primary/20 group-hover:border-primary/50 transition-calm">
+              <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                {getUserInitials()}
+              </AvatarFallback>
+            </Avatar>
+            {isPro && <Crown className="w-4 h-4 text-primary" />}
+          </button>
+        )}
+        
+        <button
+          onClick={() => navigate("/settings")}
+          className="p-2 text-muted-foreground hover:text-foreground transition-calm"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+      </div>
+    </header>
   );
 };
 
