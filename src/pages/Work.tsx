@@ -427,7 +427,7 @@ const WorkHeader = ({ user, isPro, presenceCount, onBack, backLabel, getUserInit
         )}
         
         <button
-          onClick={() => navigate("/settings")}
+          onClick={() => navigate("/app/settings")}
           className="p-2 text-muted-foreground hover:text-foreground transition-calm"
         >
           <Settings className="w-4 h-4" />
