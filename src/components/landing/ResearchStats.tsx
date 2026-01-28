@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Brain, Battery, TrendingUp } from "lucide-react";
+import { Clock, Brain, Battery, TrendingUp, ArrowUpRight } from "lucide-react";
 
 const ResearchStats = () => {
   return (
@@ -40,7 +40,7 @@ const ResearchStats = () => {
               <Brain className="w-5 h-5 text-yellow-400/50" />
             </div>
             <p className="text-5xl md:text-6xl font-bold text-yellow-400 mb-2">40%</p>
-            <p className="text-lg font-medium text-foreground mb-2">productivity loss</p>
+            <p className="text-lg font-medium text-foreground mb-2">loss</p>
             <p className="text-sm text-muted-foreground leading-relaxed">
               From multitasking and context switching
             </p>
@@ -73,23 +73,37 @@ export const ExponentialGrowthSection = () => {
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
   const [isAnimated, setIsAnimated] = useState(false);
 
-  // Points for the exponential curve (x, y coordinates)
+  // TradingView-style data points
   const dataPoints = [
-    { x: 50, y: 265, label: "Week 1", value: "7h", fullLabel: "Week 1" },
-    { x: 130, y: 255, label: "M1", value: "30h", fullLabel: "Month 1" },
-    { x: 210, y: 230, label: "M3", value: "90h", fullLabel: "Month 3" },
-    { x: 300, y: 180, label: "M6", value: "180h", fullLabel: "Month 6" },
-    { x: 390, y: 100, label: "Y1", value: "365h", fullLabel: "Year 1" },
-    { x: 480, y: 25, label: "Y2", value: "730h", fullLabel: "Year 2" },
+    { x: 60, y: 255, label: "W1", value: "7h", fullLabel: "Week 1", change: "+7h" },
+    { x: 140, y: 240, label: "M1", value: "30h", fullLabel: "Month 1", change: "+23h" },
+    { x: 220, y: 210, label: "M3", value: "90h", fullLabel: "Month 3", change: "+60h" },
+    { x: 300, y: 165, label: "M6", value: "180h", fullLabel: "Month 6", change: "+90h" },
+    { x: 380, y: 95, label: "Y1", value: "365h", fullLabel: "Year 1", change: "+185h" },
+    { x: 460, y: 35, label: "Y2", value: "730h", fullLabel: "Year 2", change: "+365h" },
+  ];
+
+  // Candlestick-like bars for visual interest
+  const candleData = [
+    { x: 80, open: 265, close: 258, high: 255, low: 268 },
+    { x: 120, open: 255, close: 245, high: 242, low: 258 },
+    { x: 160, open: 240, close: 225, high: 220, low: 245 },
+    { x: 200, open: 220, close: 200, high: 195, low: 225 },
+    { x: 240, open: 195, close: 175, high: 170, low: 200 },
+    { x: 280, open: 170, close: 150, high: 145, low: 175 },
+    { x: 320, open: 145, close: 120, high: 115, low: 150 },
+    { x: 360, open: 115, close: 85, high: 80, low: 120 },
+    { x: 400, open: 80, close: 55, high: 50, low: 85 },
+    { x: 440, open: 50, close: 35, high: 30, low: 55 },
   ];
 
   return (
     <section className="py-20 relative overflow-hidden">
-      {/* Glass background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5" />
+      {/* Subtle gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/3 to-transparent" />
       
       <div className="w-full max-w-6xl mx-auto px-6 relative">
-        <div className="text-center mb-12 animate-fade-up">
+        <div className="text-center mb-10 animate-fade-up">
           <p className="text-xs text-primary uppercase tracking-wider mb-4 font-medium">
             The compound effect
           </p>
@@ -97,44 +111,59 @@ export const ExponentialGrowthSection = () => {
             Small focus, exponential results
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            Just 1 hour of deep work daily compounds to 365 hours of pure work per year
+            Just 1 hour of deep work daily compounds to 365 hours per year
           </p>
         </div>
 
-        {/* Interactive Exponential Chart */}
+        {/* TradingView-style Chart Container */}
         <div 
-          className="relative p-8 rounded-3xl bg-card/30 backdrop-blur-xl border border-border/30 animate-fade-up"
+          className="relative rounded-2xl bg-[#131722] border border-[#2a2e39] animate-fade-up overflow-hidden"
           onMouseEnter={() => setIsAnimated(true)}
         >
-          {/* Trend line indicator */}
-          <div className="absolute top-6 right-6 flex items-center gap-2 text-primary z-10">
-            <TrendingUp className="w-5 h-5" />
-            <span className="text-sm font-medium">Exponential growth</span>
+          {/* Chart Header - TradingView style */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2e39]">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-white">FOCUS/TIME</span>
+                <span className="text-xs text-[#787b86]">Deep Work Hours</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <ArrowUpRight className="w-4 h-4 text-[#26a69a]" />
+                <span className="text-sm font-medium text-[#26a69a]">+1360%</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-[#787b86]">
+                <span>2Y</span>
+              </div>
+            </div>
           </div>
 
-          <div className="relative h-80 mt-4">
+          {/* Price/Value Display */}
+          <div className="px-4 py-2 flex items-baseline gap-3">
+            <span className="text-3xl font-bold text-white">730</span>
+            <span className="text-sm text-[#787b86]">hours</span>
+            <span className="text-sm text-[#26a69a]">+680h (1360%)</span>
+          </div>
+
+          {/* Chart Area */}
+          <div className="relative h-72 px-2">
             <svg 
-              viewBox="0 0 530 300" 
+              viewBox="0 0 500 280" 
               className="w-full h-full"
               preserveAspectRatio="xMidYMid meet"
             >
               <defs>
-                {/* Gradient for the curve */}
-                <linearGradient id="curveGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.6" />
-                  <stop offset="50%" stopColor="hsl(var(--primary))" stopOpacity="0.9" />
-                  <stop offset="100%" stopColor="hsl(280, 100%, 70%)" stopOpacity="1" />
+                {/* Green gradient for bullish area */}
+                <linearGradient id="tvGreenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#26a69a" stopOpacity="0.4" />
+                  <stop offset="50%" stopColor="#26a69a" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#26a69a" stopOpacity="0" />
                 </linearGradient>
                 
-                {/* Gradient for area fill */}
-                <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.4" />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-                </linearGradient>
-
-                {/* Glow filter */}
-                <filter id="curveGlow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="3" result="blur"/>
+                {/* Glow effect */}
+                <filter id="tvGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2" result="blur"/>
                   <feMerge>
                     <feMergeNode in="blur"/>
                     <feMergeNode in="SourceGraphic"/>
@@ -142,196 +171,262 @@ export const ExponentialGrowthSection = () => {
                 </filter>
               </defs>
 
-              {/* Y-axis labels */}
-              <text x="25" y="30" className="fill-muted-foreground text-[10px]" textAnchor="middle">730h</text>
-              <text x="25" y="90" className="fill-muted-foreground text-[10px]" textAnchor="middle">500h</text>
-              <text x="25" y="150" className="fill-muted-foreground text-[10px]" textAnchor="middle">250h</text>
-              <text x="25" y="210" className="fill-muted-foreground text-[10px]" textAnchor="middle">100h</text>
-              <text x="25" y="265" className="fill-muted-foreground text-[10px]" textAnchor="middle">0h</text>
-
-              {/* Subtle horizontal grid lines */}
-              {[60, 120, 180, 240].map((y) => (
+              {/* Grid lines - TradingView style */}
+              {[70, 120, 170, 220].map((y) => (
                 <line
                   key={y}
-                  x1="50"
+                  x1="40"
                   y1={y}
                   x2="480"
                   y2={y}
-                  stroke="hsl(var(--border))"
+                  stroke="#2a2e39"
                   strokeWidth="1"
-                  strokeDasharray="4,8"
-                  opacity="0.3"
+                />
+              ))}
+              
+              {/* Vertical grid lines */}
+              {[100, 180, 260, 340, 420].map((x) => (
+                <line
+                  key={x}
+                  x1={x}
+                  y1="30"
+                  x2={x}
+                  y2="250"
+                  stroke="#2a2e39"
+                  strokeWidth="1"
                 />
               ))}
 
-              {/* Area under curve - smooth exponential fill */}
+              {/* Y-axis labels */}
+              <text x="25" y="45" className="text-[9px]" fill="#787b86">730h</text>
+              <text x="25" y="95" className="text-[9px]" fill="#787b86">550h</text>
+              <text x="25" y="145" className="text-[9px]" fill="#787b86">365h</text>
+              <text x="25" y="195" className="text-[9px]" fill="#787b86">180h</text>
+              <text x="25" y="245" className="text-[9px]" fill="#787b86">0h</text>
+
+              {/* Candlestick bars - TradingView style */}
+              {candleData.map((candle, i) => {
+                const isGreen = candle.close < candle.open;
+                const color = "#26a69a";
+                const barWidth = 8;
+                
+                return (
+                  <g 
+                    key={i}
+                    className={isAnimated ? "animate-fade-in" : "opacity-0"}
+                    style={{ animationDelay: `${i * 50}ms` }}
+                  >
+                    {/* Wick */}
+                    <line
+                      x1={candle.x}
+                      y1={candle.high}
+                      x2={candle.x}
+                      y2={candle.low}
+                      stroke={color}
+                      strokeWidth="1"
+                    />
+                    {/* Body */}
+                    <rect
+                      x={candle.x - barWidth / 2}
+                      y={Math.min(candle.open, candle.close)}
+                      width={barWidth}
+                      height={Math.abs(candle.close - candle.open)}
+                      fill={color}
+                      rx="1"
+                    />
+                  </g>
+                );
+              })}
+
+              {/* Area fill under curve */}
               <path
-                d="M 50 270 
-                   Q 90 268, 130 260
-                   Q 180 250, 210 235
-                   Q 260 210, 300 180
-                   Q 350 140, 390 95
-                   Q 440 45, 480 20
-                   L 480 270 Z"
-                fill="url(#areaGradient)"
+                d={`M 60 255 
+                    Q 100 250, 140 240
+                    Q 180 225, 220 210
+                    Q 260 185, 300 165
+                    Q 340 130, 380 95
+                    Q 420 55, 460 35
+                    L 460 260 L 60 260 Z`}
+                fill="url(#tvGreenGradient)"
                 className={isAnimated ? "animate-fade-in" : "opacity-0"}
                 style={{ animationDuration: "1s" }}
               />
 
-              {/* Main exponential curve - smooth upward arc */}
+              {/* Main trend line */}
               <path
-                d="M 50 268 
-                   Q 90 265, 130 258
-                   Q 180 248, 210 232
-                   Q 260 205, 300 175
-                   Q 350 135, 390 90
-                   Q 440 40, 480 18"
+                d={`M 60 255 
+                    Q 100 250, 140 240
+                    Q 180 225, 220 210
+                    Q 260 185, 300 165
+                    Q 340 130, 380 95
+                    Q 420 55, 460 35`}
                 fill="none"
-                stroke="url(#curveGradient)"
-                strokeWidth="4"
+                stroke="#26a69a"
+                strokeWidth="2.5"
                 strokeLinecap="round"
-                filter="url(#curveGlow)"
+                filter="url(#tvGlow)"
                 className={isAnimated ? "animate-fade-in" : "opacity-0"}
-                style={{ 
-                  animationDuration: "0.8s",
-                  strokeDasharray: isAnimated ? "none" : "1000",
-                  strokeDashoffset: isAnimated ? "0" : "1000",
-                  transition: "stroke-dashoffset 1.5s ease-out"
-                }}
               />
 
-              {/* Interactive Data points on the curve */}
+              {/* Interactive data points */}
               {dataPoints.map((point, index) => (
                 <g 
                   key={index}
                   onMouseEnter={() => setHoveredPoint(index)}
                   onMouseLeave={() => setHoveredPoint(null)}
-                  className="cursor-pointer"
+                  className="cursor-crosshair"
                   style={{ 
                     opacity: isAnimated ? 1 : 0,
                     transition: `opacity 0.3s ease-out ${index * 0.1}s`
                   }}
                 >
-                  {/* Hit area for better interaction */}
+                  {/* Hit area */}
+                  <circle cx={point.x} cy={point.y} r="20" fill="transparent" />
+                  
+                  {/* Point marker */}
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r="20"
-                    fill="transparent"
+                    r={hoveredPoint === index ? 6 : 4}
+                    fill="#26a69a"
+                    className="transition-all duration-200"
                   />
                   
-                  {/* Outer glow circle - larger when hovered */}
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={hoveredPoint === index ? 16 : 10}
-                    fill="hsl(var(--primary))"
-                    opacity={hoveredPoint === index ? 0.4 : 0.2}
-                    className="transition-all duration-300"
-                  />
-                  
-                  {/* Main circle */}
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={hoveredPoint === index ? 8 : 6}
-                    fill="hsl(var(--primary))"
-                    className="transition-all duration-300"
-                  />
-                  
-                  {/* Inner dot */}
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r="2.5"
-                    fill="hsl(var(--background))"
-                  />
-                  
-                  {/* Value label - show on hover or always for key points */}
-                  <g 
-                    className={`transition-all duration-300 ${
-                      hoveredPoint === index ? "opacity-100" : "opacity-70"
-                    }`}
-                  >
-                    {/* Background pill for better readability when hovered */}
-                    {hoveredPoint === index && (
-                      <rect
-                        x={point.x - 35}
-                        y={point.y - 50}
-                        width="70"
-                        height="32"
-                        rx="6"
-                        fill="hsl(var(--card))"
-                        stroke="hsl(var(--border))"
+                  {/* Crosshair on hover */}
+                  {hoveredPoint === index && (
+                    <>
+                      {/* Vertical line */}
+                      <line
+                        x1={point.x}
+                        y1="30"
+                        x2={point.x}
+                        y2="250"
+                        stroke="#363a45"
                         strokeWidth="1"
+                        strokeDasharray="4,4"
                       />
-                    )}
-                    
-                    <text
-                      x={point.x}
-                      y={hoveredPoint === index ? point.y - 38 : point.y - 18}
-                      textAnchor="middle"
-                      className={`fill-primary font-semibold transition-all duration-300 ${
-                        hoveredPoint === index ? "text-[13px]" : "text-[11px]"
-                      }`}
-                    >
-                      {point.value}
-                    </text>
-                    
-                    {hoveredPoint === index && (
+                      {/* Horizontal line */}
+                      <line
+                        x1="40"
+                        y1={point.y}
+                        x2="480"
+                        y2={point.y}
+                        stroke="#363a45"
+                        strokeWidth="1"
+                        strokeDasharray="4,4"
+                      />
+                      
+                      {/* Tooltip */}
+                      <g>
+                        <rect
+                          x={point.x - 45}
+                          y={point.y - 55}
+                          width="90"
+                          height="45"
+                          rx="4"
+                          fill="#1e222d"
+                          stroke="#363a45"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={point.x}
+                          y={point.y - 38}
+                          textAnchor="middle"
+                          className="text-[11px] font-medium"
+                          fill="#fff"
+                        >
+                          {point.value}
+                        </text>
+                        <text
+                          x={point.x}
+                          y={point.y - 22}
+                          textAnchor="middle"
+                          className="text-[9px]"
+                          fill="#26a69a"
+                        >
+                          {point.change}
+                        </text>
+                      </g>
+                      
+                      {/* Y-axis label */}
+                      <rect
+                        x="5"
+                        y={point.y - 8}
+                        width="30"
+                        height="16"
+                        rx="2"
+                        fill="#26a69a"
+                      />
                       <text
-                        x={point.x}
-                        y={point.y - 24}
+                        x="20"
+                        y={point.y + 3}
                         textAnchor="middle"
-                        className="fill-muted-foreground text-[10px]"
+                        className="text-[8px] font-medium"
+                        fill="#fff"
                       >
-                        {point.fullLabel}
+                        {point.value}
                       </text>
-                    )}
-                  </g>
+                    </>
+                  )}
                   
-                  {/* Month label below - always visible */}
+                  {/* X-axis label */}
                   <text
                     x={point.x}
-                    y={285}
+                    y={268}
                     textAnchor="middle"
-                    className={`fill-muted-foreground transition-all duration-300 ${
-                      hoveredPoint === index ? "text-[11px] fill-foreground" : "text-[10px]"
-                    }`}
+                    className="text-[9px]"
+                    fill={hoveredPoint === index ? "#fff" : "#787b86"}
                   >
                     {point.label}
                   </text>
                 </g>
               ))}
 
-              {/* Baseline */}
-              <line
-                x1="50"
-                y1="270"
-                x2="480"
-                y2="270"
-                stroke="hsl(var(--border))"
-                strokeWidth="1"
-              />
+              {/* Bottom axis line */}
+              <line x1="40" y1="250" x2="480" y2="250" stroke="#363a45" strokeWidth="1" />
             </svg>
           </div>
 
-          {/* Comparison text */}
-          <div className="mt-6 pt-6 border-t border-border/30 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="text-center p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-              <p className="text-3xl font-bold text-red-400 mb-1">~50h</p>
-              <p className="text-sm text-muted-foreground">Average person's yearly deep work</p>
+          {/* Chart Footer - Stats bar */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[#2a2e39] text-xs">
+            <div className="flex items-center gap-6">
+              <div>
+                <span className="text-[#787b86]">Start: </span>
+                <span className="text-[#ef5350]">~50h/yr avg</span>
+              </div>
+              <div>
+                <span className="text-[#787b86]">End: </span>
+                <span className="text-[#26a69a]">730h/2yr</span>
+              </div>
             </div>
-            <div className="text-center p-4 rounded-xl bg-green-500/10 border border-green-500/20">
-              <p className="text-3xl font-bold text-green-400 mb-1">730h+</p>
-              <p className="text-sm text-muted-foreground">With focuu in 2 years</p>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#26a69a]" />
+              <span className="text-[#787b86]">Based on 2h/day focused work</span>
             </div>
           </div>
         </div>
 
-        <p className="text-center text-sm text-muted-foreground/60 mt-6">
-          Based on 2 hours of focused work per day with focuu
-        </p>
+        {/* Comparison cards */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-5 rounded-xl bg-[#131722] border border-[#2a2e39] flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-[#ef5350]/10 flex items-center justify-center">
+              <span className="text-2xl font-bold text-[#ef5350]">↓</span>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-[#ef5350]">~50h</p>
+              <p className="text-xs text-[#787b86]">Average person's yearly deep work</p>
+            </div>
+          </div>
+          <div className="p-5 rounded-xl bg-[#131722] border border-[#2a2e39] flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-[#26a69a]/10 flex items-center justify-center">
+              <span className="text-2xl font-bold text-[#26a69a]">↑</span>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-[#26a69a]">730h+</p>
+              <p className="text-xs text-[#787b86]">With focuu in 2 years</p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
