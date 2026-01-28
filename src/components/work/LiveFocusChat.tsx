@@ -49,9 +49,9 @@ const LiveFocusChat = ({ isPro, onUpgradeClick }: LiveFocusChatProps) => {
   };
 
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full space-y-3 p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/30">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
           Focus Room
         </p>
         {!isPro && (
@@ -65,7 +65,7 @@ const LiveFocusChat = ({ isPro, onUpgradeClick }: LiveFocusChatProps) => {
       <div className="relative">
         <div 
           className={cn(
-            "h-[140px] overflow-y-auto rounded-lg bg-secondary/50 p-3 space-y-2",
+            "h-[140px] overflow-y-auto rounded-xl bg-secondary/30 border border-border/30 p-3 space-y-2",
             !isPro && "blur-[2px]"
           )}
         >
@@ -86,9 +86,9 @@ const LiveFocusChat = ({ isPro, onUpgradeClick }: LiveFocusChatProps) => {
         {!isPro && (
           <div 
             onClick={onUpgradeClick}
-            className="absolute inset-0 flex items-center justify-center cursor-pointer group bg-background/20 rounded-lg"
+            className="absolute inset-0 flex items-center justify-center cursor-pointer group bg-background/20 rounded-xl"
           >
-            <p className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-calm backdrop-blur-none">
+            <p className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-calm px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm">
               Quiet encouragement happens here →
             </p>
           </div>
@@ -105,7 +105,7 @@ const LiveFocusChat = ({ isPro, onUpgradeClick }: LiveFocusChatProps) => {
             onChange={(e) => setNewMessage(e.target.value.slice(0, 140))}
             onKeyDown={handleKeyDown}
             disabled={!canSend}
-            className="bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-primary pr-16"
+            className="bg-secondary/50 border border-border/50 focus-visible:ring-1 focus-visible:ring-primary pr-16"
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/50">
             {newMessage.length}/140
@@ -114,7 +114,7 @@ const LiveFocusChat = ({ isPro, onUpgradeClick }: LiveFocusChatProps) => {
       ) : (
         <div 
           onClick={onUpgradeClick}
-          className="p-2 rounded-lg bg-secondary/30 text-center cursor-pointer group"
+          className="p-2 rounded-xl bg-secondary/30 border border-border/30 text-center cursor-pointer group"
         >
           <p className="text-xs text-muted-foreground/50 group-hover:text-muted-foreground transition-calm">
             Join the room with Pro
