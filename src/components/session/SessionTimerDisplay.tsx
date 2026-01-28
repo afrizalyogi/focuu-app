@@ -40,13 +40,10 @@ const SessionTimerDisplay = ({
         </div>
       )}
 
-      {/* For stopwatch - show subtle indicator */}
+      {/* For stopwatch - show subtle dot indicator only */}
       {timerType === "stopwatch" && (
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${isRunning ? "bg-green-500 animate-pulse" : "bg-muted-foreground/50"}`} />
-          <span className="text-xs text-muted-foreground uppercase tracking-wider">
-            {isRunning ? "Recording" : "Paused"}
-          </span>
         </div>
       )}
 

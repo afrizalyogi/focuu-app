@@ -22,6 +22,7 @@ interface TaskPlannerProps {
 
 const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlannerProps) => {
   const [newTaskText, setNewTaskText] = useState("");
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   const activeTasks = tasks.filter(t => t.isActive);
   const inactiveTasks = tasks.filter(t => !t.isActive);
@@ -109,6 +110,51 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
     onTasksChange(reorderedTasks);
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetTaskId: string) => {
+    e.preventDefault();
+    
+    if (!draggedTaskId || draggedTaskId === targetTaskId) {
+      setDraggedTaskId(null);
+      return;
+    }
+
+    const activeTaskIds = activeTasks.map(t => t.id);
+    const draggedIndex = activeTaskIds.indexOf(draggedTaskId);
+    const targetIndex = activeTaskIds.indexOf(targetTaskId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedTaskId(null);
+      return;
+    }
+
+    // Reorder
+    const newActiveTaskIds = [...activeTaskIds];
+    newActiveTaskIds.splice(draggedIndex, 1);
+    newActiveTaskIds.splice(targetIndex, 0, draggedTaskId);
+
+    const reorderedTasks = [
+      ...newActiveTaskIds.map(id => tasks.find(t => t.id === id)!),
+      ...inactiveTasks,
+    ];
+    onTasksChange(reorderedTasks);
+    setDraggedTaskId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTaskId(null);
+  };
+
   return (
     <div className="w-full space-y-4 p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/30">
       <div className="flex items-center justify-between">
@@ -141,7 +187,7 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
 
       {/* Active Tasks */}
       {activeTasks.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-2" onDragEnd={handleDragEnd}>
           {activeTasks.map((task, index) => (
             <TaskItem
               key={task.id}
@@ -151,9 +197,13 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
               onCategoryChange={changeCategory}
               onMoveUp={() => moveTask(task.id, "up")}
               onMoveDown={() => moveTask(task.id, "down")}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
               isFirst={index === 0}
               isLast={index === activeTasks.length - 1}
               isPro={isPro}
+              isDragging={draggedTaskId === task.id}
             />
           ))}
         </div>
@@ -176,16 +226,14 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
           value={newTaskText}
           onChange={(e) => setNewTaskText(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={!isPro && tasks.length >= 1}
           className={cn(
             "bg-secondary/50 border border-border/50 focus-visible:ring-1 focus-visible:ring-primary pr-12 transition-all",
-            "placeholder:text-muted-foreground/40",
-            !isPro && tasks.length >= 1 && "opacity-50 cursor-not-allowed"
+            "placeholder:text-muted-foreground/40"
           )}
         />
         <button
           onClick={handleAddTask}
-          disabled={!newTaskText.trim() || (!isPro && tasks.length >= 1)}
+          disabled={!newTaskText.trim()}
           className={cn(
             "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all",
             newTaskText.trim() 

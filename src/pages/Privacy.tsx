@@ -1,10 +1,8 @@
-import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 import GlassOrbs from "@/components/landing/GlassOrbs";
 
 const Privacy = () => {
-  const navigate = useNavigate();
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <GlassOrbs />
@@ -118,22 +116,7 @@ const Privacy = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 flex items-center justify-center gap-8 py-8 border-t border-border/20 text-xs text-muted-foreground/40">
-        <span>© focuu</span>
-        <button
-          onClick={() => navigate("/privacy")}
-          className="text-foreground/60"
-        >
-          Privacy
-        </button>
-        <button
-          onClick={() => navigate("/terms")}
-          className="hover:text-muted-foreground/60 transition-calm"
-        >
-          Terms
-        </button>
-      </footer>
+      <Footer />
     </div>
   );
 };
