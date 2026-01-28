@@ -69,13 +69,14 @@ const ResearchStats = () => {
 };
 
 export const ExponentialGrowthSection = () => {
+  // True exponential data: starts slow, accelerates rapidly
   const chartData = [
-    { month: "M1", height: 20, value: "30h", y: 200 },
-    { month: "M2", height: 35, value: "60h", y: 165 },
-    { month: "M3", height: 50, value: "90h", y: 130 },
-    { month: "M6", height: 75, value: "180h", y: 80 },
-    { month: "Y1", height: 120, value: "365h", y: 40 },
-    { month: "Y2", height: 180, value: "730h", y: 10 },
+    { month: "Week 1", hours: 7, percentage: 3 },
+    { month: "Month 1", hours: 30, percentage: 8 },
+    { month: "Month 3", hours: 90, percentage: 18 },
+    { month: "Month 6", hours: 180, percentage: 35 },
+    { month: "Year 1", hours: 365, percentage: 60 },
+    { month: "Year 2", hours: 730, percentage: 100 },
   ];
 
   return (
@@ -96,7 +97,7 @@ export const ExponentialGrowthSection = () => {
           </p>
         </div>
 
-        {/* Exponential Chart - SVG Based */}
+        {/* Exponential Chart - Clean SVG Curve */}
         <div className="relative p-8 rounded-3xl bg-card/30 backdrop-blur-xl border border-border/30 animate-fade-up">
           {/* Trend line indicator */}
           <div className="absolute top-6 right-6 flex items-center gap-2 text-primary z-10">
@@ -104,118 +105,145 @@ export const ExponentialGrowthSection = () => {
             <span className="text-sm font-medium">Exponential growth</span>
           </div>
 
-          <div className="relative h-72 mt-4">
+          <div className="relative h-80 mt-4">
             <svg 
-              viewBox="0 0 600 220" 
+              viewBox="0 0 500 300" 
               className="w-full h-full"
               preserveAspectRatio="xMidYMid meet"
             >
-              {/* Grid lines */}
               <defs>
-                <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="hsl(231, 94%, 67%)" stopOpacity="1" />
-                  <stop offset="100%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.3" />
-                </linearGradient>
-                <linearGradient id="curveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.5" />
+                {/* Gradient for the curve */}
+                <linearGradient id="curveGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.6" />
+                  <stop offset="50%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.9" />
                   <stop offset="100%" stopColor="hsl(280, 100%, 70%)" stopOpacity="1" />
                 </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                
+                {/* Gradient for area fill */}
+                <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0" />
+                </linearGradient>
+
+                {/* Glow filter */}
+                <filter id="curveGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="4" result="blur"/>
                   <feMerge>
-                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="blur"/>
                     <feMergeNode in="SourceGraphic"/>
                   </feMerge>
                 </filter>
               </defs>
 
-              {/* Horizontal grid lines */}
-              {[0, 50, 100, 150, 200].map((y) => (
+              {/* Y-axis labels */}
+              <text x="25" y="35" className="fill-muted-foreground text-[10px]" textAnchor="middle">730h</text>
+              <text x="25" y="95" className="fill-muted-foreground text-[10px]" textAnchor="middle">500h</text>
+              <text x="25" y="155" className="fill-muted-foreground text-[10px]" textAnchor="middle">250h</text>
+              <text x="25" y="215" className="fill-muted-foreground text-[10px]" textAnchor="middle">100h</text>
+              <text x="25" y="265" className="fill-muted-foreground text-[10px]" textAnchor="middle">0h</text>
+
+              {/* Subtle horizontal grid lines */}
+              {[60, 120, 180, 240].map((y) => (
                 <line
                   key={y}
                   x1="50"
-                  y1={y + 10}
-                  x2="570"
-                  y2={y + 10}
-                  stroke="hsl(220, 13%, 15%)"
+                  y1={y}
+                  x2="480"
+                  y2={y}
+                  stroke="hsl(220, 13%, 18%)"
                   strokeWidth="1"
-                  strokeDasharray="4,4"
+                  strokeDasharray="4,8"
                 />
               ))}
 
-              {/* Exponential curve */}
+              {/* Area under curve - smooth exponential shape */}
               <path
-                d="M 70 200 Q 120 190, 160 175 T 250 140 T 340 90 T 430 50 T 530 15"
+                d="M 50 270 
+                   C 80 268, 100 265, 130 260
+                   C 170 252, 200 240, 240 220
+                   C 280 195, 320 160, 360 120
+                   C 400 75, 440 45, 480 30
+                   L 480 270 Z"
+                fill="url(#areaGradient)"
+              />
+
+              {/* Main exponential curve - smooth upward arc */}
+              <path
+                d="M 50 270 
+                   C 80 268, 100 265, 130 260
+                   C 170 252, 200 240, 240 220
+                   C 280 195, 320 160, 360 120
+                   C 400 75, 440 45, 480 30"
                 fill="none"
                 stroke="url(#curveGradient)"
-                strokeWidth="3"
+                strokeWidth="4"
                 strokeLinecap="round"
-                filter="url(#glow)"
-                className="animate-[draw_2s_ease-out_forwards]"
+                filter="url(#curveGlow)"
               />
 
-              {/* Area under curve */}
-              <path
-                d="M 70 200 Q 120 190, 160 175 T 250 140 T 340 90 T 430 50 T 530 15 L 530 210 L 70 210 Z"
-                fill="url(#barGradient)"
-                opacity="0.15"
+              {/* Data points on the curve */}
+              {[
+                { x: 50, y: 270, label: "Week 1", value: "7h" },
+                { x: 130, y: 258, label: "M1", value: "30h" },
+                { x: 210, y: 235, label: "M3", value: "90h" },
+                { x: 300, y: 190, label: "M6", value: "180h" },
+                { x: 390, y: 110, label: "Y1", value: "365h" },
+                { x: 480, y: 30, label: "Y2", value: "730h" },
+              ].map((point, index) => (
+                <g key={index}>
+                  {/* Outer glow circle */}
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="8"
+                    fill="hsl(231, 94%, 67%)"
+                    opacity="0.3"
+                    className="animate-pulse-soft"
+                  />
+                  {/* Main circle */}
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="5"
+                    fill="hsl(231, 94%, 67%)"
+                  />
+                  {/* Inner dot */}
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="2"
+                    fill="white"
+                  />
+                  {/* Value label above point */}
+                  <text
+                    x={point.x}
+                    y={point.y - 15}
+                    textAnchor="middle"
+                    className="fill-primary text-[11px] font-semibold"
+                  >
+                    {point.value}
+                  </text>
+                  {/* Month label below */}
+                  <text
+                    x={point.x}
+                    y={285}
+                    textAnchor="middle"
+                    className="fill-muted-foreground text-[10px]"
+                  >
+                    {point.label}
+                  </text>
+                </g>
+              ))}
+
+              {/* Baseline */}
+              <line
+                x1="50"
+                y1="270"
+                x2="480"
+                y2="270"
+                stroke="hsl(220, 13%, 20%)"
+                strokeWidth="1"
               />
-
-              {/* Data points with bars */}
-              {chartData.map((point, index) => {
-                const x = 70 + index * 92;
-                const barHeight = point.height;
-                return (
-                  <g key={point.month}>
-                    {/* Bar */}
-                    <rect
-                      x={x - 20}
-                      y={210 - barHeight}
-                      width="40"
-                      height={barHeight}
-                      fill="url(#barGradient)"
-                      rx="4"
-                      className="transition-all duration-500 hover:opacity-80"
-                      style={{ animationDelay: `${index * 150}ms` }}
-                    />
-                    
-                    {/* Glow circle on curve */}
-                    <circle
-                      cx={x}
-                      cy={point.y + 10}
-                      r="6"
-                      fill="hsl(231, 94%, 67%)"
-                      filter="url(#glow)"
-                    />
-                    <circle
-                      cx={x}
-                      cy={point.y + 10}
-                      r="3"
-                      fill="white"
-                    />
-
-                    {/* Value label */}
-                    <text
-                      x={x}
-                      y={210 - barHeight - 8}
-                      textAnchor="middle"
-                      className="fill-primary text-[11px] font-medium"
-                    >
-                      {point.value}
-                    </text>
-
-                    {/* Month label */}
-                    <text
-                      x={x}
-                      y={230}
-                      textAnchor="middle"
-                      className="fill-muted-foreground text-[11px]"
-                    >
-                      {point.month}
-                    </text>
-                  </g>
-                );
-              })}
             </svg>
           </div>
 
