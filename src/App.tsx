@@ -12,6 +12,8 @@ import History from "./pages/History";
 import SavedModes from "./pages/SavedModes";
 import Settings from "./pages/Settings";
 import Pricing from "./pages/Pricing";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +43,8 @@ const AppRoutes = () => (
     <Route path="/work" element={<Work />} />
     <Route path="/auth" element={<Auth />} />
     <Route path="/pricing" element={<Pricing />} />
+    <Route path="/privacy" element={<Privacy />} />
+    <Route path="/terms" element={<Terms />} />
     <Route
       path="/app"
       element={
