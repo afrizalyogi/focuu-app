@@ -1,0 +1,39 @@
+interface SessionTimerDisplayProps {
+  formattedTime: string;
+  isRunning: boolean;
+  progress: number;
+}
+
+const SessionTimerDisplay = ({ formattedTime, isRunning, progress }: SessionTimerDisplayProps) => {
+  return (
+    <div className="flex flex-col items-center gap-6">
+      {/* Timer display */}
+      <div className="relative">
+        <div 
+          className={`
+            text-7xl md:text-8xl font-medium tracking-tight text-foreground 
+            tabular-nums transition-calm
+            ${isRunning ? "animate-breathe" : ""}
+          `}
+        >
+          {formattedTime}
+        </div>
+      </div>
+
+      {/* Progress bar - subtle */}
+      <div className="w-48 h-1 bg-secondary rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-primary transition-all duration-1000 ease-linear rounded-full"
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
+
+      {/* Status text */}
+      <p className="text-sm text-muted-foreground">
+        {isRunning ? "Working. Take your time." : "Ready when you are."}
+      </p>
+    </div>
+  );
+};
+
+export default SessionTimerDisplay;
