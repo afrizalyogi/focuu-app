@@ -21,52 +21,54 @@ const Landing = () => {
 
       {/* HERO SECTION */}
       <main className="relative z-10 flex-1 flex flex-col">
-        <section className="flex-1 flex flex-col items-center justify-center px-6 pb-10 min-h-[70vh]">
-          <div className="flex flex-col items-center text-center max-w-2xl">
-            {/* Badge */}
-            <div className="animate-fade-up mb-8">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 backdrop-blur-sm border border-primary/20 text-primary text-sm">
-                <Sparkles className="w-4 h-4" />
-                <span>Your calm workspace awaits</span>
+        <section className="flex-1 flex flex-col items-center justify-center pb-10 min-h-[70vh]">
+          <div className="w-full max-w-6xl mx-auto px-6">
+            <div className="flex flex-col items-center text-center max-w-2xl mx-auto">
+              {/* Badge */}
+              <div className="animate-fade-up mb-8">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 backdrop-blur-sm border border-primary/20 text-primary text-sm">
+                  <Sparkles className="w-4 h-4" />
+                  <span>For people who actually want to work</span>
+                </div>
               </div>
-            </div>
 
-            {/* Main headline */}
-            <h1 className="animate-fade-up text-5xl md:text-7xl font-bold tracking-tight mb-6 text-foreground" style={{ animationDelay: "100ms" }}>
-              Work, quietly.
-            </h1>
+              {/* Main headline */}
+              <h1 className="animate-fade-up text-5xl md:text-7xl font-bold tracking-tight mb-6 text-foreground" style={{ animationDelay: "100ms" }}>
+                Work, quietly.
+              </h1>
 
-            {/* Subheadline */}
-            <p className="animate-fade-up text-xl md:text-2xl text-muted-foreground mb-4 max-w-lg leading-relaxed" style={{ animationDelay: "200ms" }}>
-              A calm workspace that helps you stay present
-            </p>
-            
-            <p className="animate-fade-up text-lg text-muted-foreground/60 mb-10" style={{ animationDelay: "250ms" }}>
-              No pressure. No distraction. Just you and your work.
-            </p>
-
-            {/* CTA Group */}
-            <div className="animate-fade-up flex flex-col sm:flex-row items-center gap-4" style={{ animationDelay: "300ms" }}>
-              <Button
-                onClick={() => navigate("/work")}
-                size="lg"
-                className="group px-8 py-6 text-base font-medium transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
-              >
-                Enter work mode
-                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              
-              <p className="text-sm text-muted-foreground/50">
-                No sign up required
+              {/* Subheadline */}
+              <p className="animate-fade-up text-xl md:text-2xl text-muted-foreground mb-4 max-w-lg leading-relaxed" style={{ animationDelay: "200ms" }}>
+                A calm workspace that helps you stay present
               </p>
-            </div>
+              
+              <p className="animate-fade-up text-lg text-muted-foreground/60 mb-10" style={{ animationDelay: "250ms" }}>
+                No pressure. No distraction. Just you and your work.
+              </p>
 
-            {/* Live presence indicator */}
-            {presenceCount > 0 && (
-              <div className="mt-12">
-                <PresenceDisplay count={presenceCount} />
+              {/* CTA Group */}
+              <div className="animate-fade-up flex flex-col sm:flex-row items-center gap-4" style={{ animationDelay: "300ms" }}>
+                <Button
+                  onClick={() => navigate("/work")}
+                  size="lg"
+                  className="group px-8 py-6 text-base font-medium transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
+                >
+                  Enter work mode
+                  <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                
+                <p className="text-sm text-muted-foreground/50">
+                  No sign up required
+                </p>
               </div>
-            )}
+
+              {/* Live presence indicator */}
+              {presenceCount > 0 && (
+                <div className="mt-12">
+                  <PresenceDisplay count={presenceCount} />
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
@@ -77,15 +79,15 @@ const Landing = () => {
         <ExponentialGrowthSection />
 
         {/* FEATURES SECTION */}
-        <section className="py-20 px-6 bg-secondary/10 relative">
+        <section className="py-20 bg-secondary/10 relative">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent pointer-events-none" />
-          <div className="max-w-4xl mx-auto relative">
+          <div className="w-full max-w-6xl mx-auto px-6 relative">
             <div className="text-center mb-16 animate-fade-up">
               <h2 className="text-3xl md:text-4xl font-semibold mb-4">
                 Built for how you actually work
               </h2>
               <p className="text-muted-foreground text-lg">
-                Not another productivity trap
+                Not another trap
               </p>
             </div>
 
@@ -127,29 +129,31 @@ const Landing = () => {
         </section>
 
         {/* FINAL CTA SECTION */}
-        <section className="py-24 px-6 relative">
-          <div className="max-w-xl mx-auto text-center animate-fade-up">
-            {/* Motivational copy */}
-            <p className="text-2xl md:text-3xl font-medium text-foreground mb-4">
-              You don't need to feel ready.
-            </p>
-            <p className="text-xl text-muted-foreground mb-10">
-              Just enter work mode.
-            </p>
+        <section className="py-24 relative">
+          <div className="w-full max-w-6xl mx-auto px-6">
+            <div className="max-w-xl mx-auto text-center animate-fade-up">
+              {/* Motivational copy */}
+              <p className="text-2xl md:text-3xl font-medium text-foreground mb-4">
+                You don't need to feel ready.
+              </p>
+              <p className="text-xl text-muted-foreground mb-10">
+                Just enter work mode.
+              </p>
 
-            {/* Final CTA */}
-            <Button
-              onClick={() => navigate("/work")}
-              size="lg"
-              className="group px-12 py-7 text-lg font-medium transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/20"
-            >
-              Start working now
-              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Button>
+              {/* Final CTA */}
+              <Button
+                onClick={() => navigate("/work")}
+                size="lg"
+                className="group px-12 py-7 text-lg font-medium transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/20"
+              >
+                Start working now
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
 
-            <p className="mt-6 text-sm text-muted-foreground/50">
-              Free forever. Pro when you're ready.
-            </p>
+              <p className="mt-6 text-sm text-muted-foreground/50">
+                Free forever. Pro when you're ready.
+              </p>
+            </div>
           </div>
         </section>
       </main>

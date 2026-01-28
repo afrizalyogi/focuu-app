@@ -16,9 +16,11 @@ import TaskPlanner, { Task } from "@/components/work/TaskPlanner";
 import SessionNotes from "@/components/work/SessionNotes";
 import LiveFocusChat from "@/components/work/LiveFocusChat";
 import UpgradePrompt from "@/components/work/UpgradePrompt";
+import WorkingSessionOverlay from "@/components/work/WorkingSessionOverlay";
 import GlassOrbs from "@/components/landing/GlassOrbs";
+import TimerModeSelector, { TimerMode } from "@/components/session/TimerModeSelector";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Crown, Settings, Home, Pause, Play, Square } from "lucide-react";
+import { Crown, Settings, Home, Pause, Play, Square, Coffee } from "lucide-react";
 
 type SessionPhase = "setup" | "working" | "closure";
 
@@ -33,11 +35,13 @@ const Work = () => {
 
   const [phase, setPhase] = useState<SessionPhase>("setup");
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
+  const [timerMode, setTimerMode] = useState<TimerMode>("flexible");
   const [customMinutes, setCustomMinutes] = useState(25);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState("");
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [modeApplied, setModeApplied] = useState(false);
+  const [isOnBreak, setIsOnBreak] = useState(false);
   const sessionStartRef = useRef<Date | null>(null);
 
   const isPro = profile?.is_pro ?? false;
@@ -70,9 +74,15 @@ const Work = () => {
   const handleSessionEnd = useCallback(() => {
     const sessionLength = energyMode === "custom" ? customMinutes : ENERGY_CONFIGS[energyMode].sessionLength;
     recordSession(energyMode, activeTask?.text || null, sessionLength);
+    
+    // For pomodoro mode, suggest a break
+    if (timerMode === "pomodoro") {
+      setIsOnBreak(true);
+    }
+    
     stopTracking();
     setPhase("closure");
-  }, [energyMode, customMinutes, activeTask, recordSession, stopTracking]);
+  }, [energyMode, customMinutes, activeTask, recordSession, stopTracking, timerMode]);
 
   const {
     formattedTime,
@@ -109,11 +119,21 @@ const Work = () => {
     stopTracking();
     setPhase("setup");
     setNotes("");
+    setIsOnBreak(false);
     sessionStartRef.current = null;
   };
 
   const handleContinue = () => {
-    extend(15);
+    extend(timerMode === "pomodoro" ? ENERGY_CONFIGS[energyMode === "custom" ? "normal" : energyMode].sessionLength : 15);
+    setIsOnBreak(false);
+    setPhase("working");
+  };
+
+  const handleTakeBreak = () => {
+    // Start a break timer (5 minutes default)
+    const breakLength = ENERGY_CONFIGS[energyMode === "custom" ? "normal" : energyMode].breakLength;
+    extend(breakLength);
+    setIsOnBreak(true);
     setPhase("working");
   };
 
@@ -182,54 +202,85 @@ const Work = () => {
 
         {!outsideHours && (
           <div className="w-full max-w-5xl mx-auto">
-            {/* Working Phase - Ultra minimal, centered timer */}
+            {/* Working Phase - Ultra minimal, centered timer with overlay */}
             {phase === "working" && (
-              <div className="flex flex-col items-center justify-center min-h-[70vh] animate-fade-in">
-                {/* Active task - subtle context */}
-                {activeTask && (
-                  <p className="text-sm text-muted-foreground/80 mb-8 max-w-md text-center tracking-wide">
-                    {activeTask.text}
-                  </p>
-                )}
+              <>
+                {/* Session overlay for notifications, quotes, tasks/notes display */}
+                <WorkingSessionOverlay 
+                  tasks={tasks} 
+                  notes={notes} 
+                  isPro={isPro} 
+                />
+                
+                <div className="flex flex-col items-center justify-center min-h-[70vh] animate-fade-in">
+                  {/* Break indicator */}
+                  {isOnBreak && (
+                    <div className="flex items-center gap-2 mb-6 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+                      <Coffee className="w-4 h-4 text-primary" />
+                      <span className="text-sm text-primary">Break time</span>
+                    </div>
+                  )}
 
-                {/* Giant centered timer */}
-                <div className="relative mb-12">
-                  <SessionTimerDisplay
-                    formattedTime={formattedTime}
-                    isRunning={isRunning}
-                    progress={progress}
-                  />
-                </div>
+                  {/* Active task - subtle context */}
+                  {activeTask && !isOnBreak && (
+                    <p className="text-sm text-muted-foreground/80 mb-8 max-w-md text-center tracking-wide">
+                      {activeTask.text}
+                    </p>
+                  )}
 
-                {/* Minimal controls */}
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handlePauseResume}
-                    className="w-14 h-14 rounded-full border border-border/50 bg-card/30 backdrop-blur-sm hover:bg-card/50 transition-calm"
-                  >
-                    {isRunning ? (
-                      <Pause className="w-6 h-6 text-muted-foreground" />
-                    ) : (
-                      <Play className="w-6 h-6 text-primary" />
+                  {/* Giant centered timer */}
+                  <div className="relative mb-12">
+                    <SessionTimerDisplay
+                      formattedTime={formattedTime}
+                      isRunning={isRunning}
+                      progress={progress}
+                    />
+                  </div>
+
+                  {/* Minimal controls */}
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handlePauseResume}
+                      className="w-14 h-14 rounded-full border border-border/50 bg-card/30 backdrop-blur-sm hover:bg-card/50 transition-calm"
+                    >
+                      {isRunning ? (
+                        <Pause className="w-6 h-6 text-muted-foreground" />
+                      ) : (
+                        <Play className="w-6 h-6 text-primary" />
+                      )}
+                    </Button>
+                    
+                    {/* Take break button - only for flexible mode during work */}
+                    {timerMode === "flexible" && !isOnBreak && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleTakeBreak}
+                        className="w-12 h-12 rounded-full border border-border/30 bg-card/20 backdrop-blur-sm hover:bg-primary/10 hover:border-primary/30 transition-calm"
+                        title="Take a break"
+                      >
+                        <Coffee className="w-4 h-4 text-muted-foreground" />
+                      </Button>
                     )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleStop}
-                    className="w-12 h-12 rounded-full border border-border/30 bg-card/20 backdrop-blur-sm hover:bg-destructive/20 hover:border-destructive/30 transition-calm"
-                  >
-                    <Square className="w-4 h-4 text-muted-foreground" />
-                  </Button>
-                </div>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleStop}
+                      className="w-12 h-12 rounded-full border border-border/30 bg-card/20 backdrop-blur-sm hover:bg-destructive/20 hover:border-destructive/30 transition-calm"
+                    >
+                      <Square className="w-4 h-4 text-muted-foreground" />
+                    </Button>
+                  </div>
 
-                {/* Breathing presence indicator */}
-                <div className="mt-16 animate-breathe">
-                  <PresenceIndicator count={presenceCount} />
+                  {/* Breathing presence indicator */}
+                  <div className="mt-16 animate-breathe">
+                    <PresenceIndicator count={presenceCount} />
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             {/* Setup Phase - Dashboard-like grid */}
@@ -239,8 +290,22 @@ const Work = () => {
                 <div className="lg:col-span-7 space-y-6">
                   {/* Session Setup Card - Hero */}
                   <div className="p-8 rounded-3xl bg-card/40 backdrop-blur-xl border border-border/30 text-center">
-                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-6">
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-4">
                       Ready to focus
+                    </p>
+                    
+                    {/* Timer Mode Selector */}
+                    <div className="flex justify-center mb-6">
+                      <TimerModeSelector
+                        selected={timerMode}
+                        onSelect={setTimerMode}
+                      />
+                    </div>
+                    
+                    <p className="text-xs text-muted-foreground/60 mb-6">
+                      {timerMode === "pomodoro" 
+                        ? "Work sessions with scheduled breaks" 
+                        : "Work as long as you want, take breaks when ready"}
                     </p>
                     
                     <EnergyModeSelector

@@ -7,21 +7,21 @@ const PresenceDisplay = ({ count }: PresenceDisplayProps) => {
 
   return (
     <div className="animate-fade-up flex items-center gap-3 px-4 py-2 rounded-xl bg-card/30 backdrop-blur-xl border border-border/30" style={{ animationDelay: "400ms" }}>
-      {/* Tighter stacked circles without letters */}
-      <div className="flex -space-x-3">
+      {/* Tight stacked circles - full opacity, overlapping */}
+      <div className="flex -space-x-2">
         {[...Array(Math.min(count, 5))].map((_, i) => (
           <div 
             key={i} 
-            className="w-7 h-7 rounded-full border-2 border-background"
+            className="w-6 h-6 rounded-full border-2 border-background"
             style={{
-              background: `linear-gradient(135deg, hsl(var(--primary) / ${0.6 - i * 0.1}) 0%, hsl(var(--primary) / ${0.3 - i * 0.05}) 100%)`,
+              background: `linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280, 100%, 65%) 100%)`,
               zIndex: 5 - i,
             }}
           />
         ))}
         {count > 5 && (
           <div 
-            className="w-7 h-7 rounded-full border-2 border-background bg-secondary flex items-center justify-center text-[10px] text-muted-foreground font-medium"
+            className="w-6 h-6 rounded-full border-2 border-background bg-primary/80 flex items-center justify-center text-[9px] text-primary-foreground font-semibold"
             style={{ zIndex: 0 }}
           >
             +{count - 5}
