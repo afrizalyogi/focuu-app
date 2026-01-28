@@ -5,6 +5,7 @@ import { useSavedModes } from "@/hooks/useSavedModes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EnergyMode } from "@/hooks/useSessionTimer";
+import { ArrowLeft, Plus, Star, Trash2 } from "lucide-react";
 
 const ENERGY_CONFIGS: Record<Exclude<EnergyMode, "custom">, { sessionLength: number; breakLength: number }> = {
   low: { sessionLength: 15, breakLength: 10 },
@@ -19,7 +20,7 @@ const SavedModes = () => {
 
   const [isCreating, setIsCreating] = useState(false);
   const [newModeName, setNewModeName] = useState("");
-  const [selectedEnergy, setSelectedEnergy] = useState<EnergyMode>("normal");
+  const [selectedEnergy, setSelectedEnergy] = useState<Exclude<EnergyMode, "custom">>("normal");
 
   const isPro = profile?.is_pro ?? false;
 
@@ -35,16 +36,19 @@ const SavedModes = () => {
   if (!isPro) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        <header className="p-4 md:p-6">
+        <div className="fixed inset-0 bg-gradient-to-b from-primary/3 via-transparent to-transparent pointer-events-none" />
+        
+        <header className="relative z-10 p-4 md:p-6">
           <button
             onClick={() => navigate("/app")}
-            className="text-sm text-muted-foreground hover:text-foreground transition-calm"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
           >
-            ← Back
+            <ArrowLeft className="w-4 h-4" />
+            Back
           </button>
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-20">
           <div className="text-center max-w-sm animate-fade-up">
             <h1 className="text-2xl font-semibold text-foreground mb-2">
               Saved modes
@@ -66,16 +70,19 @@ const SavedModes = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="p-4 md:p-6">
+      <div className="fixed inset-0 bg-gradient-to-b from-primary/3 via-transparent to-transparent pointer-events-none" />
+      
+      <header className="relative z-10 p-4 md:p-6">
         <button
           onClick={() => navigate("/app")}
-          className="text-sm text-muted-foreground hover:text-foreground transition-calm"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
         >
-          ← Back
+          <ArrowLeft className="w-4 h-4" />
+          Back
         </button>
       </header>
 
-      <main className="flex-1 px-6 pb-20 max-w-lg mx-auto w-full">
+      <main className="relative z-10 flex-1 px-6 pb-20 max-w-lg mx-auto w-full">
         <div className="animate-fade-up">
           <h1 className="text-2xl font-semibold text-foreground mb-2">
             Saved modes
@@ -89,76 +96,79 @@ const SavedModes = () => {
             {modes.map((mode) => (
               <div
                 key={mode.id}
-                className="flex items-center justify-between p-4 bg-card rounded-lg"
+                className="flex items-center justify-between p-4 rounded-xl bg-card/50 border border-border/30 hover:border-border/50 transition-calm"
               >
-                <div>
-                  <p className="text-foreground font-medium">
-                    {mode.name}
-                    {mode.isDefault && (
-                      <span className="text-xs text-accent ml-2">default</span>
-                    )}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {mode.energyMode} · {mode.sessionLength} min
-                  </p>
+                <div className="flex items-center gap-3">
+                  {mode.isDefault && (
+                    <Star className="w-4 h-4 text-primary fill-primary" />
+                  )}
+                  <div>
+                    <p className="text-foreground font-medium">
+                      {mode.name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {mode.energyMode} · {mode.sessionLength} min
+                    </p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   {!mode.isDefault && (
                     <button
                       onClick={() => setDefaultMode(mode.id)}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-calm"
+                      className="text-xs text-muted-foreground hover:text-foreground transition-calm px-2 py-1 rounded-lg hover:bg-secondary"
                     >
                       Set default
                     </button>
                   )}
                   <button
                     onClick={() => deleteMode(mode.id)}
-                    className="text-xs text-muted-foreground hover:text-destructive transition-calm"
+                    className="p-2 text-muted-foreground hover:text-destructive transition-calm rounded-lg hover:bg-secondary"
                   >
-                    Delete
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             ))}
 
             {modes.length === 0 && !isCreating && (
-              <p className="text-muted-foreground text-center py-8">
-                No saved modes yet.
-              </p>
+              <div className="p-8 rounded-xl bg-secondary/30 border border-border/30 text-center">
+                <p className="text-muted-foreground">
+                  No saved modes yet.
+                </p>
+              </div>
             )}
           </div>
 
           {/* Create new mode */}
           {isCreating ? (
-            <div className="bg-card rounded-lg p-4 space-y-4">
+            <div className="p-4 rounded-xl bg-card/50 border border-border/30 space-y-4">
               <Input
                 placeholder="Mode name"
                 value={newModeName}
                 onChange={(e) => setNewModeName(e.target.value)}
-                className="bg-background"
+                className="bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-primary"
               />
               <div className="flex gap-2">
-                {(["low", "normal", "focused"] as EnergyMode[]).map((energy) => (
+                {(["low", "normal", "focused"] as const).map((energy) => (
                   <button
                     key={energy}
                     onClick={() => setSelectedEnergy(energy)}
-                    className={`px-3 py-1.5 rounded-md text-sm transition-calm ${
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-calm ${
                       selectedEnergy === energy
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-background text-muted-foreground"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {energy}
+                    {energy.charAt(0).toUpperCase() + energy.slice(1)}
                   </button>
                 ))}
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleCreateMode} size="sm">
+                <Button onClick={handleCreateMode} className="flex-1">
                   Save
                 </Button>
                 <Button
                   variant="ghost"
-                  size="sm"
                   onClick={() => {
                     setIsCreating(false);
                     setNewModeName("");
@@ -174,6 +184,7 @@ const SavedModes = () => {
               onClick={() => setIsCreating(true)}
               className="w-full transition-calm"
             >
+              <Plus className="w-4 h-4 mr-2" />
               Create new mode
             </Button>
           )}
