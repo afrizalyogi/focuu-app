@@ -1,42 +1,100 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ChatMessage {
   id: string;
-  text: string;
-  timestamp: Date;
-  isSystem?: boolean;
+  user_id: string;
+  message: string;
+  created_at: string;
 }
 
 interface LiveFocusChatProps {
   isPro: boolean;
   onUpgradeClick: () => void;
+  isWorkingSession?: boolean;
 }
 
-// Mock messages for demo - in production these would come from Supabase realtime
-const MOCK_MESSAGES: ChatMessage[] = [
-  { id: "1", text: "Back to it.", timestamp: new Date(Date.now() - 300000), isSystem: true },
-  { id: "2", text: "Taking a moment to breathe.", timestamp: new Date(Date.now() - 240000) },
-  { id: "3", text: "Halfway through my session.", timestamp: new Date(Date.now() - 180000) },
-  { id: "4", text: "Stay with this a bit longer.", timestamp: new Date(Date.now() - 120000), isSystem: true },
-  { id: "5", text: "One thing at a time.", timestamp: new Date(Date.now() - 60000) },
-];
-
-const LiveFocusChat = ({ isPro, onUpgradeClick }: LiveFocusChatProps) => {
-  const [messages] = useState<ChatMessage[]>(MOCK_MESSAGES);
+const LiveFocusChat = ({ isPro, onUpgradeClick, isWorkingSession = false }: LiveFocusChatProps) => {
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [canSend, setCanSend] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch initial messages
+  useEffect(() => {
+    const fetchMessages = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(50);
+
+      if (error) {
+        console.error('Error fetching messages:', error);
+      } else {
+        setMessages(data || []);
+      }
+      setIsLoading(false);
+    };
+
+    fetchMessages();
+  }, []);
+
+  // Subscribe to realtime updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('chat_messages_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+        },
+        (payload) => {
+          const newMsg = payload.new as ChatMessage;
+          setMessages((prev) => [...prev, newMsg]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // Slow mode: 1 message per 2 minutes
-  const handleSend = () => {
-    if (!newMessage.trim() || !canSend || !isPro) return;
+  const handleSend = async () => {
+    if (!newMessage.trim() || !canSend || !isPro || !user) return;
     
-    // In production: send to Supabase realtime channel
-    console.log("Sending:", newMessage);
+    const messageText = newMessage.trim().slice(0, 140);
     setNewMessage("");
     setCanSend(false);
-    
+
+    const { error } = await supabase
+      .from('chat_messages')
+      .insert({
+        user_id: user.id,
+        message: messageText,
+      });
+
+    if (error) {
+      console.error('Error sending message:', error);
+      setCanSend(true);
+      return;
+    }
+
     // Re-enable after 2 minutes
     setTimeout(() => setCanSend(true), 120000);
   };
@@ -46,6 +104,11 @@ const LiveFocusChat = ({ isPro, onUpgradeClick }: LiveFocusChatProps) => {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
@@ -69,17 +132,28 @@ const LiveFocusChat = ({ isPro, onUpgradeClick }: LiveFocusChatProps) => {
             !isPro && "blur-[2px]"
           )}
         >
-          {messages.map((msg) => (
-            <div 
-              key={msg.id}
-              className={cn(
-                "text-sm",
-                msg.isSystem ? "text-muted-foreground/60 italic" : "text-foreground/80"
-              )}
-            >
-              {msg.text}
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <span className="text-xs text-muted-foreground">Loading...</span>
             </div>
-          ))}
+          ) : messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <span className="text-xs text-muted-foreground/60">No messages yet. Be the first to encourage!</span>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <div 
+                key={msg.id}
+                className="text-sm text-foreground/80"
+              >
+                <span className="text-muted-foreground/40 text-xs mr-2">
+                  {formatTime(msg.created_at)}
+                </span>
+                {msg.message}
+              </div>
+            ))
+          )}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Overlay for free users */}
@@ -104,7 +178,7 @@ const LiveFocusChat = ({ isPro, onUpgradeClick }: LiveFocusChatProps) => {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value.slice(0, 140))}
             onKeyDown={handleKeyDown}
-            disabled={!canSend}
+            disabled={!canSend || !user}
             className="bg-secondary/50 border border-border/50 focus-visible:ring-1 focus-visible:ring-primary pr-16"
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/50">

@@ -225,7 +225,8 @@ const Work = () => {
                 <WorkingSessionOverlay 
                   tasks={tasks} 
                   notes={notes} 
-                  isPro={isPro} 
+                  isPro={isPro}
+                  onTasksChange={setTasks}
                 />
                 
                 <div className="flex flex-col items-center justify-center min-h-[70vh] animate-fade-in">

@@ -1,3 +1,4 @@
+import { useState, useRef } from "react";
 import { GripVertical, X, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Task, TaskCategory } from "./TaskPlanner";
@@ -9,9 +10,13 @@ interface TaskItemProps {
   onCategoryChange: (id: string, category: TaskCategory) => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onDragStart?: (e: React.DragEvent, taskId: string) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent, targetTaskId: string) => void;
   isFirst?: boolean;
   isLast?: boolean;
   isPro: boolean;
+  isDragging?: boolean;
 }
 
 const CATEGORY_LABELS: Record<TaskCategory, string> = {
@@ -39,9 +44,13 @@ const TaskItem = ({
   onCategoryChange,
   onMoveUp,
   onMoveDown,
+  onDragStart,
+  onDragOver,
+  onDrop,
   isFirst,
   isLast,
-  isPro 
+  isPro,
+  isDragging = false,
 }: TaskItemProps) => {
   const categories: TaskCategory[] = ["deep", "support", "light"];
 
@@ -52,19 +61,42 @@ const TaskItem = ({
     onCategoryChange(task.id, categories[nextIndex]);
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    if (!isPro || !onDragStart) return;
+    onDragStart(e, task.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!isPro || !onDragOver) return;
+    e.preventDefault();
+    onDragOver(e);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (!isPro || !onDrop) return;
+    e.preventDefault();
+    onDrop(e, task.id);
+  };
+
   if (task.isActive) {
     return (
       <div
+        draggable={isPro}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         className={cn(
           "group p-4 rounded-xl border transition-all duration-300",
           "hover:shadow-lg hover:shadow-primary/5",
-          CATEGORY_STYLES[task.category]
+          CATEGORY_STYLES[task.category],
+          isDragging && "opacity-50",
+          isPro && "cursor-grab active:cursor-grabbing"
         )}
       >
         <div className="flex items-start gap-3">
           {/* Drag handle & reorder */}
           {isPro && (
-            <div className="flex flex-col items-center gap-0.5 opacity-0 group-hover:opacity-60 transition-opacity">
+            <div className="flex flex-col items-center gap-0.5 opacity-40 group-hover:opacity-60 transition-opacity">
               <button
                 onClick={onMoveUp}
                 disabled={isFirst}

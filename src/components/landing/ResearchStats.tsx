@@ -73,37 +73,38 @@ export const ExponentialGrowthSection = () => {
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
   const [isAnimated, setIsAnimated] = useState(false);
 
-  // TradingView-style data points
+  // Data points for the area chart
   const dataPoints = [
-    { x: 60, y: 255, label: "W1", value: "7h", fullLabel: "Week 1", change: "+7h" },
-    { x: 140, y: 240, label: "M1", value: "30h", fullLabel: "Month 1", change: "+23h" },
-    { x: 220, y: 210, label: "M3", value: "90h", fullLabel: "Month 3", change: "+60h" },
-    { x: 300, y: 165, label: "M6", value: "180h", fullLabel: "Month 6", change: "+90h" },
-    { x: 380, y: 95, label: "Y1", value: "365h", fullLabel: "Year 1", change: "+185h" },
-    { x: 460, y: 35, label: "Y2", value: "730h", fullLabel: "Year 2", change: "+365h" },
+    { x: 40, y: 255, label: "W1", value: "7h", fullLabel: "Week 1", change: "+7h" },
+    { x: 120, y: 240, label: "M1", value: "30h", fullLabel: "Month 1", change: "+23h" },
+    { x: 200, y: 210, label: "M3", value: "90h", fullLabel: "Month 3", change: "+60h" },
+    { x: 280, y: 165, label: "M6", value: "180h", fullLabel: "Month 6", change: "+90h" },
+    { x: 360, y: 95, label: "Y1", value: "365h", fullLabel: "Year 1", change: "+185h" },
+    { x: 440, y: 35, label: "Y2", value: "730h", fullLabel: "Year 2", change: "+365h" },
   ];
 
-  // Candlestick-like bars for visual interest
-  const candleData = [
-    { x: 80, open: 265, close: 258, high: 255, low: 268 },
-    { x: 120, open: 255, close: 245, high: 242, low: 258 },
-    { x: 160, open: 240, close: 225, high: 220, low: 245 },
-    { x: 200, open: 220, close: 200, high: 195, low: 225 },
-    { x: 240, open: 195, close: 175, high: 170, low: 200 },
-    { x: 280, open: 170, close: 150, high: 145, low: 175 },
-    { x: 320, open: 145, close: 120, high: 115, low: 150 },
-    { x: 360, open: 115, close: 85, high: 80, low: 120 },
-    { x: 400, open: 80, close: 55, high: 50, low: 85 },
-    { x: 440, open: 50, close: 35, high: 30, low: 55 },
-  ];
+  // Create smooth curve path
+  const createAreaPath = () => {
+    const points = dataPoints.map(p => `${p.x},${p.y}`);
+    return `M ${points[0]} 
+            C ${dataPoints[0].x + 30},${dataPoints[0].y} ${dataPoints[1].x - 30},${dataPoints[1].y} ${dataPoints[1].x},${dataPoints[1].y}
+            C ${dataPoints[1].x + 30},${dataPoints[1].y - 10} ${dataPoints[2].x - 30},${dataPoints[2].y + 10} ${dataPoints[2].x},${dataPoints[2].y}
+            C ${dataPoints[2].x + 30},${dataPoints[2].y - 15} ${dataPoints[3].x - 30},${dataPoints[3].y + 15} ${dataPoints[3].x},${dataPoints[3].y}
+            C ${dataPoints[3].x + 30},${dataPoints[3].y - 25} ${dataPoints[4].x - 30},${dataPoints[4].y + 25} ${dataPoints[4].x},${dataPoints[4].y}
+            C ${dataPoints[4].x + 30},${dataPoints[4].y - 20} ${dataPoints[5].x - 30},${dataPoints[5].y + 20} ${dataPoints[5].x},${dataPoints[5].y}`;
+  };
+
+  const createFilledAreaPath = () => {
+    return `${createAreaPath()} L 440,260 L 40,260 Z`;
+  };
 
   return (
     <section className="py-20 relative overflow-hidden">
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/3 to-transparent" />
       
-      <div className="w-full max-w-6xl mx-auto px-6 relative">
-        <div className="text-center mb-10 animate-fade-up">
+      <div className="w-full px-6 relative">
+        <div className="text-center mb-10 animate-fade-up max-w-6xl mx-auto">
           <p className="text-xs text-primary uppercase tracking-wider mb-4 font-medium">
             The compound effect
           </p>
@@ -115,9 +116,9 @@ export const ExponentialGrowthSection = () => {
           </p>
         </div>
 
-        {/* TradingView-style Chart Container */}
+        {/* Full-width Chart Container */}
         <div 
-          className="relative rounded-2xl bg-[#131722] border border-[#2a2e39] animate-fade-up overflow-hidden"
+          className="relative rounded-2xl bg-[#131722] border border-[#2a2e39] animate-fade-up overflow-hidden max-w-7xl mx-auto"
           onMouseEnter={() => setIsAnimated(true)}
         >
           {/* Chart Header - TradingView style */}
@@ -146,24 +147,24 @@ export const ExponentialGrowthSection = () => {
             <span className="text-sm text-[#26a69a]">+680h (1360%)</span>
           </div>
 
-          {/* Chart Area */}
-          <div className="relative h-72 px-2">
+          {/* Chart Area - Full width */}
+          <div className="relative h-72 w-full">
             <svg 
-              viewBox="0 0 500 280" 
+              viewBox="0 0 480 280" 
               className="w-full h-full"
               preserveAspectRatio="xMidYMid meet"
             >
               <defs>
-                {/* Green gradient for bullish area */}
-                <linearGradient id="tvGreenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#26a69a" stopOpacity="0.4" />
-                  <stop offset="50%" stopColor="#26a69a" stopOpacity="0.15" />
-                  <stop offset="100%" stopColor="#26a69a" stopOpacity="0" />
+                {/* Green gradient for area fill */}
+                <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#26a69a" stopOpacity="0.5" />
+                  <stop offset="50%" stopColor="#26a69a" stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="#26a69a" stopOpacity="0.02" />
                 </linearGradient>
                 
-                {/* Glow effect */}
-                <filter id="tvGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="2" result="blur"/>
+                {/* Glow effect for line */}
+                <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur"/>
                   <feMerge>
                     <feMergeNode in="blur"/>
                     <feMergeNode in="SourceGraphic"/>
@@ -171,13 +172,13 @@ export const ExponentialGrowthSection = () => {
                 </filter>
               </defs>
 
-              {/* Grid lines - TradingView style */}
+              {/* Grid lines - horizontal */}
               {[70, 120, 170, 220].map((y) => (
                 <line
                   key={y}
-                  x1="40"
+                  x1="20"
                   y1={y}
-                  x2="480"
+                  x2="460"
                   y2={y}
                   stroke="#2a2e39"
                   strokeWidth="1"
@@ -185,7 +186,7 @@ export const ExponentialGrowthSection = () => {
               ))}
               
               {/* Vertical grid lines */}
-              {[100, 180, 260, 340, 420].map((x) => (
+              {[80, 160, 240, 320, 400].map((x) => (
                 <line
                   key={x}
                   x1={x}
@@ -198,73 +199,29 @@ export const ExponentialGrowthSection = () => {
               ))}
 
               {/* Y-axis labels */}
-              <text x="25" y="45" className="text-[9px]" fill="#787b86">730h</text>
-              <text x="25" y="95" className="text-[9px]" fill="#787b86">550h</text>
-              <text x="25" y="145" className="text-[9px]" fill="#787b86">365h</text>
-              <text x="25" y="195" className="text-[9px]" fill="#787b86">180h</text>
-              <text x="25" y="245" className="text-[9px]" fill="#787b86">0h</text>
-
-              {/* Candlestick bars - TradingView style */}
-              {candleData.map((candle, i) => {
-                const isGreen = candle.close < candle.open;
-                const color = "#26a69a";
-                const barWidth = 8;
-                
-                return (
-                  <g 
-                    key={i}
-                    className={isAnimated ? "animate-fade-in" : "opacity-0"}
-                    style={{ animationDelay: `${i * 50}ms` }}
-                  >
-                    {/* Wick */}
-                    <line
-                      x1={candle.x}
-                      y1={candle.high}
-                      x2={candle.x}
-                      y2={candle.low}
-                      stroke={color}
-                      strokeWidth="1"
-                    />
-                    {/* Body */}
-                    <rect
-                      x={candle.x - barWidth / 2}
-                      y={Math.min(candle.open, candle.close)}
-                      width={barWidth}
-                      height={Math.abs(candle.close - candle.open)}
-                      fill={color}
-                      rx="1"
-                    />
-                  </g>
-                );
-              })}
+              <text x="8" y="45" className="text-[9px]" fill="#787b86">730h</text>
+              <text x="8" y="95" className="text-[9px]" fill="#787b86">550h</text>
+              <text x="8" y="145" className="text-[9px]" fill="#787b86">365h</text>
+              <text x="8" y="195" className="text-[9px]" fill="#787b86">180h</text>
+              <text x="8" y="245" className="text-[9px]" fill="#787b86">0h</text>
 
               {/* Area fill under curve */}
               <path
-                d={`M 60 255 
-                    Q 100 250, 140 240
-                    Q 180 225, 220 210
-                    Q 260 185, 300 165
-                    Q 340 130, 380 95
-                    Q 420 55, 460 35
-                    L 460 260 L 60 260 Z`}
-                fill="url(#tvGreenGradient)"
+                d={createFilledAreaPath()}
+                fill="url(#areaGradient)"
                 className={isAnimated ? "animate-fade-in" : "opacity-0"}
                 style={{ animationDuration: "1s" }}
               />
 
               {/* Main trend line */}
               <path
-                d={`M 60 255 
-                    Q 100 250, 140 240
-                    Q 180 225, 220 210
-                    Q 260 185, 300 165
-                    Q 340 130, 380 95
-                    Q 420 55, 460 35`}
+                d={createAreaPath()}
                 fill="none"
                 stroke="#26a69a"
                 strokeWidth="2.5"
                 strokeLinecap="round"
-                filter="url(#tvGlow)"
+                strokeLinejoin="round"
+                filter="url(#lineGlow)"
                 className={isAnimated ? "animate-fade-in" : "opacity-0"}
               />
 
@@ -287,8 +244,10 @@ export const ExponentialGrowthSection = () => {
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r={hoveredPoint === index ? 6 : 4}
-                    fill="#26a69a"
+                    r={hoveredPoint === index ? 7 : 5}
+                    fill="#131722"
+                    stroke="#26a69a"
+                    strokeWidth="2"
                     className="transition-all duration-200"
                   />
                   
@@ -307,9 +266,9 @@ export const ExponentialGrowthSection = () => {
                       />
                       {/* Horizontal line */}
                       <line
-                        x1="40"
+                        x1="20"
                         y1={point.y}
-                        x2="480"
+                        x2="460"
                         y2={point.y}
                         stroke="#363a45"
                         strokeWidth="1"
@@ -350,7 +309,7 @@ export const ExponentialGrowthSection = () => {
                       
                       {/* Y-axis label */}
                       <rect
-                        x="5"
+                        x="2"
                         y={point.y - 8}
                         width="30"
                         height="16"
@@ -358,7 +317,7 @@ export const ExponentialGrowthSection = () => {
                         fill="#26a69a"
                       />
                       <text
-                        x="20"
+                        x="17"
                         y={point.y + 3}
                         textAnchor="middle"
                         className="text-[8px] font-medium"
@@ -383,7 +342,7 @@ export const ExponentialGrowthSection = () => {
               ))}
 
               {/* Bottom axis line */}
-              <line x1="40" y1="250" x2="480" y2="250" stroke="#363a45" strokeWidth="1" />
+              <line x1="20" y1="250" x2="460" y2="250" stroke="#363a45" strokeWidth="1" />
             </svg>
           </div>
 
@@ -407,7 +366,7 @@ export const ExponentialGrowthSection = () => {
         </div>
 
         {/* Comparison cards */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-6xl mx-auto">
           <div className="p-5 rounded-xl bg-[#131722] border border-[#2a2e39] flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-[#ef5350]/10 flex items-center justify-center">
               <span className="text-2xl font-bold text-[#ef5350]">↓</span>
@@ -422,8 +381,8 @@ export const ExponentialGrowthSection = () => {
               <span className="text-2xl font-bold text-[#26a69a]">↑</span>
             </div>
             <div>
-              <p className="text-2xl font-bold text-[#26a69a]">730h+</p>
-              <p className="text-xs text-[#787b86]">With focuu in 2 years</p>
+              <p className="text-2xl font-bold text-[#26a69a]">730h</p>
+              <p className="text-xs text-[#787b86]">Your potential in 2 years with focuu</p>
             </div>
           </div>
         </div>
