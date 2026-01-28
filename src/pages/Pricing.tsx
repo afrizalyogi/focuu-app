@@ -1,14 +1,36 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { user, profile, upgradeToPro } = useAuth();
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleUpgrade = () => {
-    // In real implementation, this would redirect to Stripe
-    upgradeToPro();
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+    setShowCheckout(true);
+  };
+
+  const handleDummyCheckout = async () => {
+    setIsProcessing(true);
+    // Simulate payment processing
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    await upgradeToPro();
+    setIsProcessing(false);
+    setShowCheckout(false);
     navigate("/app");
   };
 
@@ -84,30 +106,74 @@ const Pricing = () => {
                 Go to dashboard
               </Button>
             </div>
-          ) : user ? (
+          ) : (
             <Button
               onClick={handleUpgrade}
               size="lg"
               className="px-10 py-6 text-base font-medium transition-calm hover:scale-[1.02]"
             >
-              Upgrade to Pro
-            </Button>
-          ) : (
-            <Button
-              onClick={() => navigate("/auth")}
-              size="lg"
-              className="px-10 py-6 text-base font-medium transition-calm hover:scale-[1.02]"
-            >
-              Sign up for Pro
+              {user ? "Upgrade to Pro" : "Sign up for Pro"}
             </Button>
           )}
 
-          {/* No pressure note - per PRD tone */}
+          {/* No pressure note */}
           <p className="text-xs text-muted-foreground/60 mt-8">
             focuu will still be here if you stay free.
           </p>
         </div>
       </main>
+
+      {/* Dummy Checkout Dialog */}
+      <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upgrade to Pro</DialogTitle>
+            <DialogDescription>
+              $4/month — cancel anytime
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="rounded-lg bg-secondary p-4 space-y-2">
+              <p className="text-sm font-medium">What you'll get:</p>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Saved work modes</li>
+                <li>• Live focus chat</li>
+                <li>• Guided breathwork</li>
+                <li>• Daily planner</li>
+                <li>• Presence history</li>
+                <li>• Time boundaries</li>
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Demo checkout</p>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>focuu Pro (monthly)</span>
+                  <span>$4.00</span>
+                </div>
+                <div className="border-t border-border pt-2 flex justify-between text-sm font-medium">
+                  <span>Total</span>
+                  <span>$4.00/month</span>
+                </div>
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleDummyCheckout} 
+              className="w-full"
+              disabled={isProcessing}
+            >
+              {isProcessing ? "Processing..." : "Complete Purchase"}
+            </Button>
+            
+            <p className="text-xs text-center text-muted-foreground">
+              This is a demo. No real payment will be processed.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
