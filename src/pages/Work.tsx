@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { useSessionTimer, EnergyMode, ENERGY_CONFIGS } from "@/hooks/useSessionTimer";
 import { usePresenceCount, useWorkingPresence } from "@/hooks/usePresenceCount";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
+import { useSettings } from "@/hooks/useSettings";
+import { useAuth } from "@/contexts/AuthContext";
 import EnergyModeSelector from "@/components/session/EnergyModeSelector";
 import SessionTimerDisplay from "@/components/session/SessionTimerDisplay";
 import PresenceIndicator from "@/components/session/PresenceIndicator";
 import IntentLine from "@/components/session/IntentLine";
 import SessionClosure from "@/components/session/SessionClosure";
+import OutsideHoursMessage from "@/components/session/OutsideHoursMessage";
 
 type SessionPhase = "setup" | "working" | "closure";
 
@@ -17,14 +20,18 @@ const Work = () => {
   const presenceCount = usePresenceCount();
   const { startTracking, stopTracking } = useWorkingPresence();
   const { recordSession } = useSessionHistory();
+  const { settings, isWithinWorkHours } = useSettings();
+  const { profile } = useAuth();
 
   const [phase, setPhase] = useState<SessionPhase>("setup");
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
   const [intent, setIntent] = useState("");
   const sessionStartRef = useRef<Date | null>(null);
 
+  const isPro = profile?.is_pro ?? false;
+  const outsideHours = isPro && settings.workHoursEnabled && !isWithinWorkHours();
+
   const handleSessionEnd = useCallback(() => {
-    // Record the completed session
     const config = ENERGY_CONFIGS[energyMode];
     recordSession(energyMode, intent || null, config.sessionLength);
     stopTracking();
@@ -96,21 +103,27 @@ const Work = () => {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
-        {phase === "setup" && (
+        {/* Outside work hours message for Pro users */}
+        {outsideHours && phase === "setup" && (
+          <OutsideHoursMessage
+            workHoursStart={settings.workHoursStart}
+            workHoursEnd={settings.workHoursEnd}
+          />
+        )}
+
+        {/* Normal setup phase */}
+        {!outsideHours && phase === "setup" && (
           <div className="flex flex-col items-center gap-10 animate-fade-up">
-            {/* Energy mode selector */}
             <EnergyModeSelector
               selected={energyMode}
               onSelect={setEnergyMode}
             />
 
-            {/* Intent line */}
             <IntentLine
               value={intent}
               onChange={setIntent}
             />
 
-            {/* Start button */}
             <Button
               onClick={handleStart}
               size="lg"
@@ -123,21 +136,18 @@ const Work = () => {
 
         {phase === "working" && (
           <div className="flex flex-col items-center gap-10 animate-fade-in">
-            {/* Intent display */}
             {intent && (
               <p className="text-sm text-muted-foreground max-w-sm text-center">
                 {intent}
               </p>
             )}
 
-            {/* Timer */}
             <SessionTimerDisplay
               formattedTime={formattedTime}
               isRunning={isRunning}
               progress={progress}
             />
 
-            {/* Pause/Resume */}
             <Button
               variant="ghost"
               onClick={handlePauseResume}
