@@ -1,71 +1,133 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-
-interface User {
-  id: string;
-  email: string;
-  isPro: boolean;
-  createdAt: string;
-}
+import { User, Session } from "@supabase/supabase-js";
+import { supabase, Profile } from "@/integrations/supabase/client";
 
 interface AuthContextType {
   user: User | null;
+  profile: Profile | null;
+  session: Session | null;
   isLoading: boolean;
-  signIn: (email: string) => Promise<void>;
-  signOut: () => void;
-  upgradeToPro: () => void;
+  signIn: (email: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithPassword: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<void>;
+  upgradeToPro: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const STORAGE_KEY = "focuu_user";
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Load user from localStorage on mount
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
+  const fetchProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (!error && data) {
+      setProfile(data as Profile);
     }
-    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Defer profile fetch to avoid deadlock
+        if (session?.user) {
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+          }, 0);
+        } else {
+          setProfile(null);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string): Promise<void> => {
-    // Simulate magic link delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    const newUser: User = {
-      id: crypto.randomUUID(),
+  const signIn = async (email: string): Promise<{ error: Error | null }> => {
+    const redirectUrl = `${window.location.origin}/`;
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      isPro: false,
-      createdAt: new Date().toISOString(),
-    };
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
-    setUser(newUser);
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
+    });
+    return { error };
   };
 
-  const signOut = () => {
-    localStorage.removeItem(STORAGE_KEY);
+  const signUp = async (email: string, password: string): Promise<{ error: Error | null }> => {
+    const redirectUrl = `${window.location.origin}/`;
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
+    });
+    return { error };
+  };
+
+  const signInWithPassword = async (email: string, password: string): Promise<{ error: Error | null }> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { error };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
     setUser(null);
+    setProfile(null);
+    setSession(null);
   };
 
-  const upgradeToPro = () => {
+  const upgradeToPro = async () => {
     if (user) {
-      const updatedUser = { ...user, isPro: true };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_pro: true })
+        .eq("id", user.id);
+
+      if (!error) {
+        setProfile((prev) => prev ? { ...prev, is_pro: true } : null);
+      }
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signOut, upgradeToPro }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      profile, 
+      session, 
+      isLoading, 
+      signIn, 
+      signUp,
+      signInWithPassword,
+      signOut, 
+      upgradeToPro 
+    }}>
       {children}
     </AuthContext.Provider>
   );

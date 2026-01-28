@@ -1,26 +1,100 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
-// Simulated presence count for MVP
-// Will be replaced with real Supabase realtime when backend is enabled
+const PRESENCE_CHANNEL = "focuu:presence";
+
 export const usePresenceCount = () => {
   const [count, setCount] = useState(0);
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
   useEffect(() => {
-    // Generate a base count that changes slowly
-    const baseCount = Math.floor(Math.random() * 50) + 80; // 80-130 base
-    setCount(baseCount);
+    // Create presence channel
+    const presenceChannel = supabase.channel(PRESENCE_CHANNEL, {
+      config: {
+        presence: {
+          key: crypto.randomUUID(),
+        },
+      },
+    });
 
-    // Simulate small fluctuations every 30-60 seconds
-    const interval = setInterval(() => {
-      setCount((prev) => {
-        const delta = Math.floor(Math.random() * 7) - 3; // -3 to +3
-        const newCount = prev + delta;
-        return Math.max(50, Math.min(200, newCount)); // Keep between 50-200
+    presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        const state = presenceChannel.presenceState();
+        const totalCount = Object.keys(state).length;
+        setCount(totalCount);
+      })
+      .on("presence", { event: "join" }, () => {
+        const state = presenceChannel.presenceState();
+        setCount(Object.keys(state).length);
+      })
+      .on("presence", { event: "leave" }, () => {
+        const state = presenceChannel.presenceState();
+        setCount(Object.keys(state).length);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          // Track this user's presence
+          await presenceChannel.track({
+            online_at: new Date().toISOString(),
+          });
+        }
       });
-    }, 30000 + Math.random() * 30000);
 
-    return () => clearInterval(interval);
+    setChannel(presenceChannel);
+
+    return () => {
+      presenceChannel.unsubscribe();
+    };
   }, []);
 
   return count;
+};
+
+// Hook for tracking presence when actively working
+export const useWorkingPresence = () => {
+  const [isTracking, setIsTracking] = useState(false);
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+
+  const startTracking = useCallback(async () => {
+    if (channel) return;
+
+    const workingChannel = supabase.channel("focuu:working", {
+      config: {
+        presence: {
+          key: crypto.randomUUID(),
+        },
+      },
+    });
+
+    await workingChannel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await workingChannel.track({
+          started_at: new Date().toISOString(),
+        });
+        setIsTracking(true);
+      }
+    });
+
+    setChannel(workingChannel);
+  }, [channel]);
+
+  const stopTracking = useCallback(async () => {
+    if (channel) {
+      await channel.untrack();
+      await channel.unsubscribe();
+      setChannel(null);
+      setIsTracking(false);
+    }
+  }, [channel]);
+
+  useEffect(() => {
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
+  }, [channel]);
+
+  return { isTracking, startTracking, stopTracking };
 };

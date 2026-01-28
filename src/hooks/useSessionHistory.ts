@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { supabase, Session } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { EnergyMode } from "./useSessionTimer";
 
 export interface SessionRecord {
@@ -16,23 +18,54 @@ interface DaySummary {
   totalMinutes: number;
 }
 
-const STORAGE_KEY = "focuu_sessions";
+const LOCAL_STORAGE_KEY = "focuu_sessions";
 
 export const useSessionHistory = () => {
+  const { user } = useAuth();
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
+  // Fetch sessions from Supabase if logged in, otherwise from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setSessions(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-  }, []);
+    const fetchSessions = async () => {
+      if (user) {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from("sessions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("completed_at", { ascending: false })
+          .limit(100);
 
-  const recordSession = useCallback((
+        if (!error && data) {
+          const mapped: SessionRecord[] = data.map((s) => ({
+            id: s.id,
+            date: new Date(s.completed_at).toISOString().split("T")[0],
+            energyMode: s.energy_mode as EnergyMode,
+            intent: s.intent,
+            durationMinutes: s.duration_minutes,
+            completedAt: s.completed_at,
+          }));
+          setSessions(mapped);
+        }
+        setIsLoading(false);
+      } else {
+        // Load from localStorage for anonymous users
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (stored) {
+          try {
+            setSessions(JSON.parse(stored));
+          } catch {
+            localStorage.removeItem(LOCAL_STORAGE_KEY);
+          }
+        }
+      }
+    };
+
+    fetchSessions();
+  }, [user]);
+
+  const recordSession = useCallback(async (
     energyMode: EnergyMode,
     intent: string | null,
     durationMinutes: number
@@ -46,17 +79,33 @@ export const useSessionHistory = () => {
       completedAt: new Date().toISOString(),
     };
 
-    setSessions((prev) => {
-      const updated = [newSession, ...prev].slice(0, 100); // Keep last 100
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
+    if (user) {
+      // Save to Supabase
+      const { error } = await supabase.from("sessions").insert({
+        id: newSession.id,
+        user_id: user.id,
+        energy_mode: energyMode,
+        intent,
+        duration_minutes: durationMinutes,
+        completed_at: newSession.completedAt,
+      });
+
+      if (!error) {
+        setSessions((prev) => [newSession, ...prev].slice(0, 100));
+      }
+    } else {
+      // Save to localStorage for anonymous users
+      setSessions((prev) => {
+        const updated = [newSession, ...prev].slice(0, 100);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [user]);
 
   const getDaySummaries = useCallback((days: number = 7): DaySummary[] => {
     const summaryMap = new Map<string, DaySummary>();
     
-    // Initialize last N days
     for (let i = 0; i < days; i++) {
       const date = new Date();
       date.setDate(date.getDate() - i);
@@ -68,7 +117,6 @@ export const useSessionHistory = () => {
       });
     }
 
-    // Aggregate sessions
     sessions.forEach((session) => {
       const summary = summaryMap.get(session.date);
       if (summary) {
@@ -99,6 +147,7 @@ export const useSessionHistory = () => {
 
   return {
     sessions,
+    isLoading,
     recordSession,
     getDaySummaries,
     getTotalStats,
