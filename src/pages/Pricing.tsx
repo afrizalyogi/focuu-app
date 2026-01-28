@@ -8,7 +8,6 @@ const Pricing = () => {
 
   const handleUpgrade = () => {
     // In real implementation, this would redirect to Stripe
-    // For now, simulate instant upgrade
     upgradeToPro();
     navigate("/app");
   };
@@ -31,13 +30,13 @@ const Pricing = () => {
           <h1 className="text-3xl font-semibold text-foreground mb-4">
             focuu Pro
           </h1>
-          <p className="text-muted-foreground mb-10">
+          <p className="text-muted-foreground mb-12">
             Remove small frictions that add up over time.
           </p>
 
-          {/* What it's not */}
+          {/* What focuu is not - per PRD explicit exclusions */}
           <div className="text-left mb-10">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">
               What focuu is not
             </p>
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -47,12 +46,12 @@ const Pricing = () => {
             </ul>
           </div>
 
-          {/* What Pro unlocks */}
-          <div className="text-left mb-10">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
+          {/* What Pro unlocks - per PRD features */}
+          <div className="text-left mb-12">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">
               What Pro quietly unlocks
             </p>
-            <ul className="space-y-2 text-sm text-foreground">
+            <ul className="space-y-3 text-sm text-foreground">
               <li>✓ Saved work modes — your rhythm, remembered</li>
               <li>✓ Auto-start — open focuu, session begins</li>
               <li>✓ Presence history — proof you were here</li>
@@ -60,15 +59,15 @@ const Pricing = () => {
             </ul>
           </div>
 
-          {/* Price */}
-          <div className="mb-8">
+          {/* Price - per PRD $4/month flat */}
+          <div className="mb-10">
             <p className="text-4xl font-semibold text-foreground">
               $4
               <span className="text-lg text-muted-foreground font-normal">
                 /month
               </span>
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-2">
               Cancel anytime
             </p>
           </div>
@@ -103,8 +102,8 @@ const Pricing = () => {
             </Button>
           )}
 
-          {/* No pressure note */}
-          <p className="text-xs text-muted-foreground mt-6">
+          {/* No pressure note - per PRD tone */}
+          <p className="text-xs text-muted-foreground/60 mt-8">
             focuu will still be here if you stay free.
           </p>
         </div>
