@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { Clock, Brain, Battery, TrendingUp } from "lucide-react";
 
 const ResearchStats = () => {
   return (
-    <section className="py-20 px-6 border-t border-border/20">
-      <div className="max-w-5xl mx-auto">
+    <section className="py-20 border-t border-border/20">
+      <div className="w-full max-w-6xl mx-auto px-6">
         <div className="text-center mb-16 animate-fade-up">
           <p className="text-xs text-primary uppercase tracking-wider mb-4 font-medium">
             The science is clear
@@ -69,22 +70,25 @@ const ResearchStats = () => {
 };
 
 export const ExponentialGrowthSection = () => {
-  // True exponential data: starts slow, accelerates rapidly
-  const chartData = [
-    { month: "Week 1", hours: 7, percentage: 3 },
-    { month: "Month 1", hours: 30, percentage: 8 },
-    { month: "Month 3", hours: 90, percentage: 18 },
-    { month: "Month 6", hours: 180, percentage: 35 },
-    { month: "Year 1", hours: 365, percentage: 60 },
-    { month: "Year 2", hours: 730, percentage: 100 },
+  const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
+  const [isAnimated, setIsAnimated] = useState(false);
+
+  // Points for the exponential curve (x, y coordinates)
+  const dataPoints = [
+    { x: 50, y: 265, label: "Week 1", value: "7h", fullLabel: "Week 1" },
+    { x: 130, y: 255, label: "M1", value: "30h", fullLabel: "Month 1" },
+    { x: 210, y: 230, label: "M3", value: "90h", fullLabel: "Month 3" },
+    { x: 300, y: 180, label: "M6", value: "180h", fullLabel: "Month 6" },
+    { x: 390, y: 100, label: "Y1", value: "365h", fullLabel: "Year 1" },
+    { x: 480, y: 25, label: "Y2", value: "730h", fullLabel: "Year 2" },
   ];
 
   return (
-    <section className="py-20 px-6 relative overflow-hidden">
+    <section className="py-20 relative overflow-hidden">
       {/* Glass background */}
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5" />
       
-      <div className="max-w-4xl mx-auto relative">
+      <div className="w-full max-w-6xl mx-auto px-6 relative">
         <div className="text-center mb-12 animate-fade-up">
           <p className="text-xs text-primary uppercase tracking-wider mb-4 font-medium">
             The compound effect
@@ -93,12 +97,15 @@ export const ExponentialGrowthSection = () => {
             Small focus, exponential results
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            Just 1 hour of deep work daily compounds to 365 hours of pure productivity per year
+            Just 1 hour of deep work daily compounds to 365 hours of pure work per year
           </p>
         </div>
 
-        {/* Exponential Chart - Clean SVG Curve */}
-        <div className="relative p-8 rounded-3xl bg-card/30 backdrop-blur-xl border border-border/30 animate-fade-up">
+        {/* Interactive Exponential Chart */}
+        <div 
+          className="relative p-8 rounded-3xl bg-card/30 backdrop-blur-xl border border-border/30 animate-fade-up"
+          onMouseEnter={() => setIsAnimated(true)}
+        >
           {/* Trend line indicator */}
           <div className="absolute top-6 right-6 flex items-center gap-2 text-primary z-10">
             <TrendingUp className="w-5 h-5" />
@@ -107,27 +114,27 @@ export const ExponentialGrowthSection = () => {
 
           <div className="relative h-80 mt-4">
             <svg 
-              viewBox="0 0 500 300" 
+              viewBox="0 0 530 300" 
               className="w-full h-full"
               preserveAspectRatio="xMidYMid meet"
             >
               <defs>
                 {/* Gradient for the curve */}
                 <linearGradient id="curveGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.6" />
-                  <stop offset="50%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.9" />
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.6" />
+                  <stop offset="50%" stopColor="hsl(var(--primary))" stopOpacity="0.9" />
                   <stop offset="100%" stopColor="hsl(280, 100%, 70%)" stopOpacity="1" />
                 </linearGradient>
                 
                 {/* Gradient for area fill */}
                 <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="hsl(231, 94%, 67%)" stopOpacity="0" />
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
                 </linearGradient>
 
                 {/* Glow filter */}
                 <filter id="curveGlow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="4" result="blur"/>
+                  <feGaussianBlur stdDeviation="3" result="blur"/>
                   <feMerge>
                     <feMergeNode in="blur"/>
                     <feMergeNode in="SourceGraphic"/>
@@ -136,10 +143,10 @@ export const ExponentialGrowthSection = () => {
               </defs>
 
               {/* Y-axis labels */}
-              <text x="25" y="35" className="fill-muted-foreground text-[10px]" textAnchor="middle">730h</text>
-              <text x="25" y="95" className="fill-muted-foreground text-[10px]" textAnchor="middle">500h</text>
-              <text x="25" y="155" className="fill-muted-foreground text-[10px]" textAnchor="middle">250h</text>
-              <text x="25" y="215" className="fill-muted-foreground text-[10px]" textAnchor="middle">100h</text>
+              <text x="25" y="30" className="fill-muted-foreground text-[10px]" textAnchor="middle">730h</text>
+              <text x="25" y="90" className="fill-muted-foreground text-[10px]" textAnchor="middle">500h</text>
+              <text x="25" y="150" className="fill-muted-foreground text-[10px]" textAnchor="middle">250h</text>
+              <text x="25" y="210" className="fill-muted-foreground text-[10px]" textAnchor="middle">100h</text>
               <text x="25" y="265" className="fill-muted-foreground text-[10px]" textAnchor="middle">0h</text>
 
               {/* Subtle horizontal grid lines */}
@@ -150,85 +157,147 @@ export const ExponentialGrowthSection = () => {
                   y1={y}
                   x2="480"
                   y2={y}
-                  stroke="hsl(220, 13%, 18%)"
+                  stroke="hsl(var(--border))"
                   strokeWidth="1"
                   strokeDasharray="4,8"
+                  opacity="0.3"
                 />
               ))}
 
-              {/* Area under curve - smooth exponential shape */}
+              {/* Area under curve - smooth exponential fill */}
               <path
                 d="M 50 270 
-                   C 80 268, 100 265, 130 260
-                   C 170 252, 200 240, 240 220
-                   C 280 195, 320 160, 360 120
-                   C 400 75, 440 45, 480 30
+                   Q 90 268, 130 260
+                   Q 180 250, 210 235
+                   Q 260 210, 300 180
+                   Q 350 140, 390 95
+                   Q 440 45, 480 20
                    L 480 270 Z"
                 fill="url(#areaGradient)"
+                className={isAnimated ? "animate-fade-in" : "opacity-0"}
+                style={{ animationDuration: "1s" }}
               />
 
               {/* Main exponential curve - smooth upward arc */}
               <path
-                d="M 50 270 
-                   C 80 268, 100 265, 130 260
-                   C 170 252, 200 240, 240 220
-                   C 280 195, 320 160, 360 120
-                   C 400 75, 440 45, 480 30"
+                d="M 50 268 
+                   Q 90 265, 130 258
+                   Q 180 248, 210 232
+                   Q 260 205, 300 175
+                   Q 350 135, 390 90
+                   Q 440 40, 480 18"
                 fill="none"
                 stroke="url(#curveGradient)"
                 strokeWidth="4"
                 strokeLinecap="round"
                 filter="url(#curveGlow)"
+                className={isAnimated ? "animate-fade-in" : "opacity-0"}
+                style={{ 
+                  animationDuration: "0.8s",
+                  strokeDasharray: isAnimated ? "none" : "1000",
+                  strokeDashoffset: isAnimated ? "0" : "1000",
+                  transition: "stroke-dashoffset 1.5s ease-out"
+                }}
               />
 
-              {/* Data points on the curve */}
-              {[
-                { x: 50, y: 270, label: "Week 1", value: "7h" },
-                { x: 130, y: 258, label: "M1", value: "30h" },
-                { x: 210, y: 235, label: "M3", value: "90h" },
-                { x: 300, y: 190, label: "M6", value: "180h" },
-                { x: 390, y: 110, label: "Y1", value: "365h" },
-                { x: 480, y: 30, label: "Y2", value: "730h" },
-              ].map((point, index) => (
-                <g key={index}>
-                  {/* Outer glow circle */}
+              {/* Interactive Data points on the curve */}
+              {dataPoints.map((point, index) => (
+                <g 
+                  key={index}
+                  onMouseEnter={() => setHoveredPoint(index)}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                  className="cursor-pointer"
+                  style={{ 
+                    opacity: isAnimated ? 1 : 0,
+                    transition: `opacity 0.3s ease-out ${index * 0.1}s`
+                  }}
+                >
+                  {/* Hit area for better interaction */}
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r="8"
-                    fill="hsl(231, 94%, 67%)"
-                    opacity="0.3"
-                    className="animate-pulse-soft"
+                    r="20"
+                    fill="transparent"
                   />
+                  
+                  {/* Outer glow circle - larger when hovered */}
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={hoveredPoint === index ? 16 : 10}
+                    fill="hsl(var(--primary))"
+                    opacity={hoveredPoint === index ? 0.4 : 0.2}
+                    className="transition-all duration-300"
+                  />
+                  
                   {/* Main circle */}
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r="5"
-                    fill="hsl(231, 94%, 67%)"
+                    r={hoveredPoint === index ? 8 : 6}
+                    fill="hsl(var(--primary))"
+                    className="transition-all duration-300"
                   />
+                  
                   {/* Inner dot */}
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r="2"
-                    fill="white"
+                    r="2.5"
+                    fill="hsl(var(--background))"
                   />
-                  {/* Value label above point */}
-                  <text
-                    x={point.x}
-                    y={point.y - 15}
-                    textAnchor="middle"
-                    className="fill-primary text-[11px] font-semibold"
+                  
+                  {/* Value label - show on hover or always for key points */}
+                  <g 
+                    className={`transition-all duration-300 ${
+                      hoveredPoint === index ? "opacity-100" : "opacity-70"
+                    }`}
                   >
-                    {point.value}
-                  </text>
-                  {/* Month label below */}
+                    {/* Background pill for better readability when hovered */}
+                    {hoveredPoint === index && (
+                      <rect
+                        x={point.x - 35}
+                        y={point.y - 50}
+                        width="70"
+                        height="32"
+                        rx="6"
+                        fill="hsl(var(--card))"
+                        stroke="hsl(var(--border))"
+                        strokeWidth="1"
+                      />
+                    )}
+                    
+                    <text
+                      x={point.x}
+                      y={hoveredPoint === index ? point.y - 38 : point.y - 18}
+                      textAnchor="middle"
+                      className={`fill-primary font-semibold transition-all duration-300 ${
+                        hoveredPoint === index ? "text-[13px]" : "text-[11px]"
+                      }`}
+                    >
+                      {point.value}
+                    </text>
+                    
+                    {hoveredPoint === index && (
+                      <text
+                        x={point.x}
+                        y={point.y - 24}
+                        textAnchor="middle"
+                        className="fill-muted-foreground text-[10px]"
+                      >
+                        {point.fullLabel}
+                      </text>
+                    )}
+                  </g>
+                  
+                  {/* Month label below - always visible */}
                   <text
                     x={point.x}
                     y={285}
                     textAnchor="middle"
-                    className="fill-muted-foreground text-[10px]"
+                    className={`fill-muted-foreground transition-all duration-300 ${
+                      hoveredPoint === index ? "text-[11px] fill-foreground" : "text-[10px]"
+                    }`}
                   >
                     {point.label}
                   </text>
@@ -241,7 +310,7 @@ export const ExponentialGrowthSection = () => {
                 y1="270"
                 x2="480"
                 y2="270"
-                stroke="hsl(220, 13%, 20%)"
+                stroke="hsl(var(--border))"
                 strokeWidth="1"
               />
             </svg>
