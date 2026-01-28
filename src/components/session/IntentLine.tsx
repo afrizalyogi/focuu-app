@@ -14,7 +14,7 @@ const IntentLine = ({ value, onChange, disabled }: IntentLineProps) => {
     <div className="w-full max-w-sm">
       <Input
         type="text"
-        placeholder="What are you working on?"
+        placeholder="What brings you here today?"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
@@ -23,14 +23,14 @@ const IntentLine = ({ value, onChange, disabled }: IntentLineProps) => {
         className={`
           text-center border-0 border-b bg-transparent
           focus-visible:ring-0 focus-visible:ring-offset-0
-          placeholder:text-muted-foreground/50
-          transition-calm
-          ${isFocused ? "border-primary" : "border-border"}
+          placeholder:text-muted-foreground/40
+          transition-calm h-12
+          ${isFocused ? "border-primary/50" : "border-border/50"}
         `}
         maxLength={100}
       />
-      <p className="mt-2 text-xs text-muted-foreground/50 text-center">
-        Private. Only you can see this.
+      <p className="mt-3 text-xs text-muted-foreground/40 text-center">
+        Private. Only you see this.
       </p>
     </div>
   );

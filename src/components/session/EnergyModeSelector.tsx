@@ -9,14 +9,14 @@ interface EnergyModeSelectorProps {
 const modes: { value: EnergyMode; label: string; duration: string }[] = [
   { value: "low", label: "Low", duration: "15 min" },
   { value: "normal", label: "Normal", duration: "30 min" },
-  { value: "focused", label: "Focused", duration: "45 min" },
+  { value: "focused", label: "Deep", duration: "45 min" },
 ];
 
 const EnergyModeSelector = ({ selected, onSelect, disabled }: EnergyModeSelectorProps) => {
   return (
-    <div className="flex flex-col items-center gap-3">
-      <p className="text-sm text-muted-foreground">Energy</p>
-      <div className="flex gap-2">
+    <div className="flex flex-col items-center gap-4">
+      <p className="text-sm text-muted-foreground">How much energy today?</p>
+      <div className="flex gap-3">
         {modes.map((mode) => {
           const isSelected = selected === mode.value;
           return (
@@ -25,7 +25,7 @@ const EnergyModeSelector = ({ selected, onSelect, disabled }: EnergyModeSelector
               onClick={() => onSelect(mode.value)}
               disabled={disabled}
               className={`
-                px-4 py-2 rounded-md text-sm font-medium transition-calm
+                px-5 py-3 rounded-lg text-sm font-medium transition-calm
                 ${isSelected 
                   ? "bg-primary text-primary-foreground" 
                   : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
@@ -34,7 +34,7 @@ const EnergyModeSelector = ({ selected, onSelect, disabled }: EnergyModeSelector
               `}
             >
               <span className="block">{mode.label}</span>
-              <span className="block text-xs opacity-70">{mode.duration}</span>
+              <span className="block text-xs opacity-60 mt-0.5">{mode.duration}</span>
             </button>
           );
         })}

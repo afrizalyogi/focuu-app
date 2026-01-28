@@ -33,29 +33,30 @@ const History = () => {
           <h1 className="text-2xl font-semibold text-foreground mb-2">
             Presence history
           </h1>
-          <p className="text-muted-foreground mb-8">
-            Not a productivity score. Just proof you were here.
+          {/* Per PRD - observational, not productivity focused */}
+          <p className="text-muted-foreground mb-10">
+            Not a score. Just proof you were here.
           </p>
 
           {/* Overall stats */}
-          <div className="grid grid-cols-3 gap-4 mb-10">
+          <div className="grid grid-cols-3 gap-4 mb-12">
             <div className="bg-card rounded-lg p-4 text-center">
               <p className="text-2xl font-medium text-foreground">
                 {stats.daysPresent}
               </p>
-              <p className="text-xs text-muted-foreground">days</p>
+              <p className="text-xs text-muted-foreground mt-1">days</p>
             </div>
             <div className="bg-card rounded-lg p-4 text-center">
               <p className="text-2xl font-medium text-foreground">
                 {Math.round(stats.totalMinutes / 60)}h
               </p>
-              <p className="text-xs text-muted-foreground">total</p>
+              <p className="text-xs text-muted-foreground mt-1">total</p>
             </div>
             <div className="bg-card rounded-lg p-4 text-center">
               <p className="text-2xl font-medium text-foreground">
                 {stats.avgSessionLength}m
               </p>
-              <p className="text-xs text-muted-foreground">avg</p>
+              <p className="text-xs text-muted-foreground mt-1">avg</p>
             </div>
           </div>
 
@@ -74,7 +75,7 @@ const History = () => {
               return (
                 <div
                   key={day.date}
-                  className="flex items-center justify-between py-3 border-b border-border"
+                  className="flex items-center justify-between py-3 border-b border-border/50"
                 >
                   <span className="text-foreground">{dateLabel}</span>
                   <div className="text-right">
@@ -88,7 +89,7 @@ const History = () => {
                         </span>
                       </>
                     ) : (
-                      <span className="text-muted-foreground/50">—</span>
+                      <span className="text-muted-foreground/40">—</span>
                     )}
                   </div>
                 </div>
@@ -98,7 +99,7 @@ const History = () => {
 
           {/* Limited view notice */}
           {isLimited && (
-            <div className="mt-8 text-center">
+            <div className="mt-10 text-center">
               <p className="text-sm text-muted-foreground mb-4">
                 Free accounts see today only.
               </p>

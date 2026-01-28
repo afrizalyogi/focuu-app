@@ -6,7 +6,7 @@ interface SessionTimerDisplayProps {
 
 const SessionTimerDisplay = ({ formattedTime, isRunning, progress }: SessionTimerDisplayProps) => {
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-8">
       {/* Timer display */}
       <div className="relative">
         <div 
@@ -21,16 +21,16 @@ const SessionTimerDisplay = ({ formattedTime, isRunning, progress }: SessionTime
       </div>
 
       {/* Progress bar - subtle */}
-      <div className="w-48 h-1 bg-secondary rounded-full overflow-hidden">
+      <div className="w-48 h-0.5 bg-secondary rounded-full overflow-hidden">
         <div 
-          className="h-full bg-primary transition-all duration-1000 ease-linear rounded-full"
+          className="h-full bg-primary/60 transition-all duration-1000 ease-linear rounded-full"
           style={{ width: `${progress * 100}%` }}
         />
       </div>
 
-      {/* Status text */}
+      {/* Status text - calm, observational per PRD */}
       <p className="text-sm text-muted-foreground">
-        {isRunning ? "Working. Take your time." : "Ready when you are."}
+        {isRunning ? "You're here. Take your time." : "Ready when you are."}
       </p>
     </div>
   );

@@ -15,8 +15,6 @@ const AppDashboard = () => {
   const isPro = profile?.is_pro ?? false;
 
   const handleStartSession = () => {
-    // If user has a default mode and is Pro, could auto-start
-    // For now, go to work page
     navigate("/work");
   };
 
@@ -44,30 +42,30 @@ const AppDashboard = () => {
       {/* Main content */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
         <div className="flex flex-col items-center gap-10 animate-fade-up">
-          {/* Greeting */}
+          {/* Greeting - calm, observational */}
           <div className="text-center">
             <p className="text-muted-foreground mb-1">
-              Welcome back
+              You're back
             </p>
-            <p className="text-foreground">
+            <p className="text-foreground text-sm">
               {user?.email}
             </p>
           </div>
 
-          {/* Quick stats */}
+          {/* Quick stats - proof of presence, not productivity */}
           {stats.totalSessions > 0 && (
-            <div className="flex gap-8 text-center">
+            <div className="flex gap-10 text-center">
               <div>
-                <p className="text-2xl font-medium text-foreground">
+                <p className="text-3xl font-medium text-foreground">
                   {stats.daysPresent}
                 </p>
-                <p className="text-xs text-muted-foreground">days present</p>
+                <p className="text-xs text-muted-foreground mt-1">days present</p>
               </div>
               <div>
-                <p className="text-2xl font-medium text-foreground">
+                <p className="text-3xl font-medium text-foreground">
                   {Math.round(stats.totalMinutes / 60)}h
                 </p>
-                <p className="text-xs text-muted-foreground">total time</p>
+                <p className="text-xs text-muted-foreground mt-1">time here</p>
               </div>
             </div>
           )}
@@ -75,7 +73,7 @@ const AppDashboard = () => {
           {/* Default mode indicator */}
           {defaultMode && isPro && (
             <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-1">Your default mode</p>
+              <p className="text-xs text-muted-foreground mb-1">Your rhythm</p>
               <p className="text-sm text-foreground">
                 {defaultMode.name} · {defaultMode.sessionLength} min
               </p>
@@ -107,13 +105,13 @@ const AppDashboard = () => {
             </button>
           </div>
 
-          {/* Pro upgrade hint */}
+          {/* Pro upgrade hint - soft, not pushy */}
           {!isPro && (
             <button
               onClick={() => navigate("/pricing")}
-              className="text-xs text-muted-foreground/70 hover:text-muted-foreground transition-calm"
+              className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-calm"
             >
-              Unlock Pro features
+              Remove small frictions
             </button>
           )}
         </div>

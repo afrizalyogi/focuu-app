@@ -7,10 +7,10 @@ interface SessionClosureProps {
 
 const SessionClosure = ({ onStop, onContinue }: SessionClosureProps) => {
   return (
-    <div className="flex flex-col items-center gap-8 animate-fade-up">
-      {/* Message */}
+    <div className="flex flex-col items-center gap-10 animate-fade-up">
+      {/* Message - per PRD micro-copy */}
       <div className="text-center">
-        <p className="text-2xl md:text-3xl font-medium text-foreground mb-2">
+        <p className="text-2xl md:text-3xl font-medium text-foreground mb-3">
           Enough for now?
         </p>
         <p className="text-muted-foreground">
@@ -23,15 +23,15 @@ const SessionClosure = ({ onStop, onContinue }: SessionClosureProps) => {
         <Button
           variant="outline"
           onClick={onContinue}
-          className="px-6 transition-calm"
+          className="px-6 py-5 transition-calm"
         >
           Continue 15 min
         </Button>
         <Button
           onClick={onStop}
-          className="px-6 transition-calm"
+          className="px-8 py-5 transition-calm"
         >
-          Stop
+          Done
         </Button>
       </div>
     </div>
