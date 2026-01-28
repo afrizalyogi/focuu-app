@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 const Pricing = () => {
   const navigate = useNavigate();
-  const { user, upgradeToPro } = useAuth();
+  const { user, profile, upgradeToPro } = useAuth();
 
   const handleUpgrade = () => {
     // In real implementation, this would redirect to Stripe
@@ -13,7 +13,7 @@ const Pricing = () => {
     navigate("/app");
   };
 
-  const isPro = user?.isPro;
+  const isPro = profile?.is_pro ?? false;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

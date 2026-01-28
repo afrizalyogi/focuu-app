@@ -6,12 +6,13 @@ import { useSessionHistory } from "@/hooks/useSessionHistory";
 
 const AppDashboard = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const { getDefaultMode } = useSavedModes();
   const { getTotalStats } = useSessionHistory();
 
   const defaultMode = getDefaultMode();
   const stats = getTotalStats();
+  const isPro = profile?.is_pro ?? false;
 
   const handleStartSession = () => {
     // If user has a default mode and is Pro, could auto-start
@@ -72,7 +73,7 @@ const AppDashboard = () => {
           )}
 
           {/* Default mode indicator */}
-          {defaultMode && user?.isPro && (
+          {defaultMode && isPro && (
             <div className="text-center">
               <p className="text-xs text-muted-foreground mb-1">Your default mode</p>
               <p className="text-sm text-foreground">
@@ -107,7 +108,7 @@ const AppDashboard = () => {
           </div>
 
           {/* Pro upgrade hint */}
-          {!user?.isPro && (
+          {!isPro && (
             <button
               onClick={() => navigate("/pricing")}
               className="text-xs text-muted-foreground/70 hover:text-muted-foreground transition-calm"

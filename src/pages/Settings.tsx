@@ -15,7 +15,7 @@ const SETTINGS_KEY = "focuu_settings";
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
 
   const [settings, setSettings] = useState<UserSettings>({
     autoStart: false,
@@ -41,7 +41,7 @@ const Settings = () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
   };
 
-  const isPro = user?.isPro;
+  const isPro = profile?.is_pro ?? false;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

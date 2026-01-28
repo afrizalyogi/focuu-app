@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button";
 
 const History = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const { getDaySummaries, getTotalStats } = useSessionHistory();
 
+  const isPro = profile?.is_pro ?? false;
   const stats = getTotalStats();
-  const daySummaries = getDaySummaries(user?.isPro ? 30 : 1);
+  const daySummaries = getDaySummaries(isPro ? 30 : 1);
 
   // Free users only see today
-  const isLimited = !user?.isPro;
+  const isLimited = !isPro;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

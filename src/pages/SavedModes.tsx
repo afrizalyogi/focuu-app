@@ -14,14 +14,14 @@ const ENERGY_CONFIGS: Record<EnergyMode, { sessionLength: number; breakLength: n
 
 const SavedModes = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const { modes, saveMode, setDefaultMode, deleteMode } = useSavedModes();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newModeName, setNewModeName] = useState("");
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyMode>("normal");
 
-  const isPro = user?.isPro;
+  const isPro = profile?.is_pro ?? false;
 
   const handleCreateMode = () => {
     if (!newModeName.trim()) return;

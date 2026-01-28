@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useSessionTimer, EnergyMode } from "@/hooks/useSessionTimer";
-import { usePresenceCount } from "@/hooks/usePresenceCount";
+import { useSessionTimer, EnergyMode, ENERGY_CONFIGS } from "@/hooks/useSessionTimer";
+import { usePresenceCount, useWorkingPresence } from "@/hooks/usePresenceCount";
+import { useSessionHistory } from "@/hooks/useSessionHistory";
 import EnergyModeSelector from "@/components/session/EnergyModeSelector";
 import SessionTimerDisplay from "@/components/session/SessionTimerDisplay";
 import PresenceIndicator from "@/components/session/PresenceIndicator";
@@ -14,14 +15,21 @@ type SessionPhase = "setup" | "working" | "closure";
 const Work = () => {
   const navigate = useNavigate();
   const presenceCount = usePresenceCount();
+  const { startTracking, stopTracking } = useWorkingPresence();
+  const { recordSession } = useSessionHistory();
 
   const [phase, setPhase] = useState<SessionPhase>("setup");
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
   const [intent, setIntent] = useState("");
+  const sessionStartRef = useRef<Date | null>(null);
 
   const handleSessionEnd = useCallback(() => {
+    // Record the completed session
+    const config = ENERGY_CONFIGS[energyMode];
+    recordSession(energyMode, intent || null, config.sessionLength);
+    stopTracking();
     setPhase("closure");
-  }, []);
+  }, [energyMode, intent, recordSession, stopTracking]);
 
   const {
     formattedTime,
@@ -39,6 +47,8 @@ const Work = () => {
 
   const handleStart = () => {
     start();
+    startTracking();
+    sessionStartRef.current = new Date();
     setPhase("working");
   };
 
@@ -52,8 +62,10 @@ const Work = () => {
 
   const handleStop = () => {
     reset();
+    stopTracking();
     setPhase("setup");
     setIntent("");
+    sessionStartRef.current = null;
   };
 
   const handleContinue = () => {
