@@ -36,11 +36,13 @@ const UpgradePrompt = ({ open, onOpenChange, feature }: UpgradePromptProps) => {
 
         <div className="space-y-4 pt-2">
           <ul className="text-sm text-muted-foreground space-y-2">
-            <li>• 3 active tasks per day</li>
-            <li>• Session notes</li>
-            <li>• Live focus room</li>
+            <li>• Unlimited tasks — 3 focus highlights</li>
+            <li>• Custom backgrounds (image/video)</li>
+            <li>• Ambient music player</li>
+            <li>• Daily streak tracking</li>
+            <li>• Session notes & insights</li>
+            <li>• Work analytics dashboard</li>
             <li>• Presence history</li>
-            <li>• Saved work modes</li>
           </ul>
 
           <div className="flex flex-col gap-2">
