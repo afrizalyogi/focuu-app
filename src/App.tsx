@@ -16,6 +16,8 @@ import Pricing from "./pages/Pricing";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
+import UserAnalytics from "./pages/UserAnalytics";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +71,22 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <Settings />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/app/analytics"
+      element={
+        <ProtectedRoute>
+          <UserAnalytics />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/admin"
+      element={
+        <ProtectedRoute>
+          <AdminDashboard />
         </ProtectedRoute>
       }
     />

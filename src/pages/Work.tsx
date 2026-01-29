@@ -6,6 +6,10 @@ import { usePresenceCount, useWorkingPresence } from "@/hooks/usePresenceCount";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStreak } from "@/hooks/useStreak";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
+import { useAnalytics } from "@/hooks/useAnalytics";
+import { useTrial } from "@/hooks/useTrial";
 import EnergyModeSelector from "@/components/session/EnergyModeSelector";
 import PomodoroSettings from "@/components/session/PomodoroSettings";
 import SessionTimerDisplay from "@/components/session/SessionTimerDisplay";
@@ -19,8 +23,15 @@ import UpgradePrompt from "@/components/work/UpgradePrompt";
 import WorkingSessionOverlay from "@/components/work/WorkingSessionOverlay";
 import GlassOrbs from "@/components/landing/GlassOrbs";
 import TimerModeSelector, { TimerMode } from "@/components/session/TimerModeSelector";
+import StreakDisplay from "@/components/work/StreakDisplay";
+import ThemePicker from "@/components/work/ThemePicker";
+import MusicInput from "@/components/work/MusicInput";
+import MusicPlayer from "@/components/work/MusicPlayer";
+import BackgroundInput from "@/components/work/BackgroundInput";
+import CustomBackground from "@/components/work/CustomBackground";
+import FullscreenButton from "@/components/work/FullscreenButton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Crown, Settings, Home, Pause, Play, Square, Coffee } from "lucide-react";
+import { Crown, Settings, Home, Pause, Play, Square, Coffee, Maximize } from "lucide-react";
 import { getOnboardingData } from "./Onboarding";
 
 type SessionPhase = "setup" | "working" | "closure";
@@ -33,6 +44,10 @@ const Work = () => {
   const { recordSession } = useSessionHistory();
   const { settings, isWithinWorkHours } = useSettings();
   const { profile, user } = useAuth();
+  const { streak, updateStreak, isStreakActiveToday, isStreakAtRisk } = useStreak();
+  const { preferences, setMusicUrl, setBackgroundUrl, setTheme } = useUserPreferences();
+  const { track, trackSessionStart, trackSessionEnd } = useAnalytics();
+  const { hasProAccess, isTrial } = useTrial();
 
   const [phase, setPhase] = useState<SessionPhase>("setup");
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
@@ -46,7 +61,8 @@ const Work = () => {
   const [isOnBreak, setIsOnBreak] = useState(false);
   const sessionStartRef = useRef<Date | null>(null);
 
-  const isPro = profile?.is_pro ?? false;
+  // Use trial access for Pro features
+  const isPro = hasProAccess;
   const isGuest = !user;
   const outsideHours = isPro && settings.workHoursEnabled && !isWithinWorkHours();
 
@@ -131,6 +147,8 @@ const Work = () => {
     startTracking();
     sessionStartRef.current = new Date();
     setPhase("working");
+    trackSessionStart({ energyMode, timerMode });
+    updateStreak();
   };
 
   const handlePauseResume = () => {
@@ -147,6 +165,7 @@ const Work = () => {
     const elapsedMinutes = getElapsedMinutes();
     if (elapsedMinutes > 0) {
       recordSession(energyMode, activeTask?.text || null, elapsedMinutes);
+      trackSessionEnd({ energyMode, timerMode, durationMinutes: elapsedMinutes });
     }
     
     reset();
@@ -217,6 +236,14 @@ const Work = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Custom background */}
+      {isPro && (preferences.backgroundUrl || preferences.backgroundType !== "none") && (
+        <CustomBackground 
+          imageUrl={preferences.backgroundType === "image" ? preferences.backgroundUrl : undefined}
+          videoUrl={preferences.backgroundType === "video" ? preferences.backgroundUrl : undefined}
+        />
+      )}
+      
       <GlassOrbs />
 
       {/* Minimal floating header */}
@@ -314,7 +341,17 @@ const Work = () => {
                     >
                       <Square className="w-4 h-4 text-muted-foreground" />
                     </Button>
+                    
+                    {/* Fullscreen button */}
+                    <FullscreenButton size="sm" />
                   </div>
+
+                  {/* Music player during work */}
+                  {preferences.musicUrl && (
+                    <div className="mt-8 w-full max-w-xs">
+                      <MusicPlayer url={preferences.musicUrl} isMinimized />
+                    </div>
+                  )}
 
                   {/* Presence indicator - closer to controls */}
                   <PresenceIndicator count={presenceCount} />
@@ -329,6 +366,19 @@ const Work = () => {
                 <div className="lg:col-span-7 space-y-6">
                   {/* Session Setup Card - Hero */}
                   <div className="p-8 rounded-3xl bg-card/40 backdrop-blur-xl border border-border/30 text-center">
+                    {/* Streak Display */}
+                    {streak.currentStreak > 0 && (
+                      <div className="flex justify-center mb-6">
+                        <StreakDisplay 
+                          currentStreak={streak.currentStreak}
+                          longestStreak={streak.longestStreak}
+                          isActiveToday={isStreakActiveToday()}
+                          isAtRisk={isStreakAtRisk()}
+                          size="sm"
+                        />
+                      </div>
+                    )}
+                    
                     <p className="text-xs text-muted-foreground uppercase tracking-widest mb-4">
                       Ready to focus
                     </p>
@@ -375,10 +425,49 @@ const Work = () => {
                     onTasksChange={setTasks}
                     onUpgradeClick={handleUpgradeClick}
                   />
+                  
+                  {/* Theme Picker */}
+                  <div className="p-6 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/30">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">Theme</p>
+                    <ThemePicker 
+                      value={preferences.theme}
+                      onChange={setTheme}
+                      showPreview={true}
+                    />
+                  </div>
                 </div>
 
                 {/* RIGHT: Social & Notes */}
                 <div className="lg:col-span-5 space-y-6">
+                  {/* Music Input */}
+                  <div className="p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/30">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Background Music</p>
+                    <MusicInput
+                      value={preferences.musicUrl}
+                      onChange={setMusicUrl}
+                      isPro={isPro}
+                      onUpgradeClick={handleUpgradeClick}
+                    />
+                    {preferences.musicUrl && (
+                      <div className="mt-4">
+                        <MusicPlayer url={preferences.musicUrl} />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Background Input */}
+                  <div className="p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/30">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Background</p>
+                    <BackgroundInput
+                      imageUrl={preferences.backgroundType === "image" ? preferences.backgroundUrl : ""}
+                      videoUrl={preferences.backgroundType === "video" ? preferences.backgroundUrl : ""}
+                      onImageChange={(url) => setBackgroundUrl(url, url ? "image" : "none")}
+                      onVideoChange={(url) => setBackgroundUrl(url, url ? "video" : "none")}
+                      isPro={isPro}
+                      onUpgradeClick={handleUpgradeClick}
+                    />
+                  </div>
+                  
                   {/* Live Focus Chat */}
                   <LiveFocusChat
                     isPro={isPro}
