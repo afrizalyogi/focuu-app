@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRandomChat } from "@/hooks/useRandomChat";
 
 interface ChatMessage {
   id: string;
-  user_id: string;
+  user_id?: string;
   message: string;
   created_at: string;
 }
@@ -24,6 +25,19 @@ const LiveFocusChat = ({ isPro, onUpgradeClick, isWorkingSession = false }: Live
   const [canSend, setCanSend] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Random chat message handler
+  const handleRandomMessage = useCallback((msg: ChatMessage) => {
+    setMessages((prev) => [...prev, msg]);
+  }, []);
+
+  // Enable random chat
+  useRandomChat({
+    enabled: true,
+    onNewMessage: handleRandomMessage,
+    minInterval: 20000,
+    maxInterval: 80000,
+  });
 
   // Fetch initial messages
   useEffect(() => {

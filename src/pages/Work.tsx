@@ -1,12 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useSessionTimer, EnergyMode, ENERGY_CONFIGS } from "@/hooks/useSessionTimer";
 import { usePresenceCount, useWorkingPresence } from "@/hooks/usePresenceCount";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSavedModes } from "@/hooks/useSavedModes";
 import EnergyModeSelector from "@/components/session/EnergyModeSelector";
 import PomodoroSettings from "@/components/session/PomodoroSettings";
 import SessionTimerDisplay from "@/components/session/SessionTimerDisplay";
@@ -22,17 +21,18 @@ import GlassOrbs from "@/components/landing/GlassOrbs";
 import TimerModeSelector, { TimerMode } from "@/components/session/TimerModeSelector";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Crown, Settings, Home, Pause, Play, Square, Coffee } from "lucide-react";
+import { getOnboardingData } from "./Onboarding";
 
 type SessionPhase = "setup" | "working" | "closure";
 
 const Work = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const presenceCount = usePresenceCount();
   const { startTracking, stopTracking } = useWorkingPresence();
   const { recordSession } = useSessionHistory();
   const { settings, isWithinWorkHours } = useSettings();
   const { profile, user } = useAuth();
-  const { getDefaultMode, isLoading: modesLoading } = useSavedModes();
 
   const [phase, setPhase] = useState<SessionPhase>("setup");
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
@@ -42,7 +42,7 @@ const Work = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState("");
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
-  const [modeApplied, setModeApplied] = useState(false);
+  const [onboardingApplied, setOnboardingApplied] = useState(false);
   const [isOnBreak, setIsOnBreak] = useState(false);
   const sessionStartRef = useRef<Date | null>(null);
 
@@ -50,26 +50,48 @@ const Work = () => {
   const isGuest = !user;
   const outsideHours = isPro && settings.workHoursEnabled && !isWithinWorkHours();
 
-  // Auto-load default saved mode for Pro users
+  // Apply onboarding data when coming from onboarding
   useEffect(() => {
-    if (isPro && !modesLoading && !modeApplied) {
-      const defaultMode = getDefaultMode();
-      if (defaultMode) {
-        const standardLengths = { low: 15, normal: 30, focused: 45 };
-        const matchingMode = Object.entries(standardLengths).find(
-          ([_, length]) => length === defaultMode.sessionLength
-        );
-        
-        if (matchingMode) {
-          setEnergyMode(matchingMode[0] as EnergyMode);
-        } else {
-          setEnergyMode("custom");
-          setCustomMinutes(defaultMode.sessionLength);
-        }
-        setModeApplied(true);
-      }
+    if (onboardingApplied) return;
+
+    // Check location state first (coming directly from onboarding)
+    const locationState = location.state as any;
+    if (locationState?.fromOnboarding) {
+      applyOnboardingSettings(locationState);
+      setOnboardingApplied(true);
+      return;
     }
-  }, [isPro, modesLoading, modeApplied, getDefaultMode]);
+
+    // Otherwise check stored onboarding data
+    const storedData = getOnboardingData();
+    if (storedData) {
+      applyOnboardingSettings(storedData);
+      setOnboardingApplied(true);
+    }
+  }, [location.state, onboardingApplied]);
+
+  const applyOnboardingSettings = (data: any) => {
+    // Map session length to energy mode
+    const lengthToMode: Record<number, EnergyMode> = {
+      15: "low",
+      30: "normal",
+      45: "focused",
+    };
+    
+    if (data.sessionLength && lengthToMode[data.sessionLength]) {
+      setEnergyMode(lengthToMode[data.sessionLength]);
+    }
+
+    // Add initial task if provided
+    if (data.initialTask) {
+      setTasks([{
+        id: Date.now().toString(),
+        text: data.initialTask,
+        category: "deep" as const,
+        isActive: true,
+      }]);
+    }
+  };
 
   const activeTask = tasks.find(t => t.isActive);
 
@@ -232,7 +254,7 @@ const Work = () => {
                 <div className="flex flex-col items-center justify-center min-h-[70vh] animate-fade-in">
                   {/* Break indicator */}
                   {isOnBreak && (
-                    <div className="flex items-center gap-2 mb-6 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+                    <div className="flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
                       <Coffee className="w-4 h-4 text-primary" />
                       <span className="text-sm text-primary">Break time</span>
                     </div>
@@ -240,13 +262,13 @@ const Work = () => {
 
                   {/* Active task - subtle context */}
                   {activeTask && !isOnBreak && (
-                    <p className="text-sm text-muted-foreground/80 mb-8 max-w-md text-center tracking-wide">
+                    <p className="text-sm text-muted-foreground/80 mb-4 max-w-md text-center tracking-wide">
                       {activeTask.text}
                     </p>
                   )}
 
                   {/* Giant centered timer */}
-                  <div className="relative mb-12">
+                  <div className="relative mb-8">
                     <SessionTimerDisplay
                       formattedTime={formattedTime}
                       isRunning={isRunning}
@@ -257,7 +279,7 @@ const Work = () => {
                   </div>
 
                   {/* Minimal controls */}
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 mb-10">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -294,10 +316,8 @@ const Work = () => {
                     </Button>
                   </div>
 
-                  {/* Breathing presence indicator */}
-                  <div className="mt-16 animate-breathe">
-                    <PresenceIndicator count={presenceCount} />
-                  </div>
+                  {/* Presence indicator - closer to controls */}
+                  <PresenceIndicator count={presenceCount} />
                 </div>
               </>
             )}
