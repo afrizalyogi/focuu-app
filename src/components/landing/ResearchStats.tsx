@@ -103,8 +103,8 @@ export const ExponentialGrowthSection = () => {
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/3 to-transparent" />
       
-      <div className="w-full relative">
-        <div className="text-center mb-10 animate-fade-up px-6">
+      <div className="w-full max-w-6xl mx-auto px-6 relative">
+        <div className="text-center mb-10 animate-fade-up">
           <p className="text-xs text-primary uppercase tracking-wider mb-4 font-medium">
             The compound effect
           </p>
@@ -116,13 +116,13 @@ export const ExponentialGrowthSection = () => {
           </p>
         </div>
 
-        {/* Full-width Chart Container - edge to edge */}
+        {/* Chart Container - with rounded corners inside the max-width container */}
         <div 
-          className="relative bg-[#131722] border-y border-[#2a2e39] animate-fade-up overflow-hidden"
+          className="relative bg-[#131722] border border-[#2a2e39] rounded-2xl animate-fade-up overflow-hidden"
           onMouseEnter={() => setIsAnimated(true)}
         >
           {/* Chart Header - TradingView style */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2e39]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2e39] rounded-t-2xl">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-white">FOCUS/TIME</span>
@@ -365,8 +365,8 @@ export const ExponentialGrowthSection = () => {
           </div>
         </div>
 
-        {/* Comparison cards */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-6xl mx-auto px-6">
+        {/* Comparison cards - inside same container */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-5 rounded-xl bg-[#131722] border border-[#2a2e39] flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-[#ef5350]/10 flex items-center justify-center">
               <span className="text-2xl font-bold text-[#ef5350]">↓</span>

@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Disc3, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { Disc3, Play, Pause, Volume2, VolumeX } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-
-// Props defined below in component
 
 // Extract audio URL from various sources
 const extractAudioUrl = (url: string): { type: "direct" | "youtube" | "spotify" | "unsupported"; id?: string } => {
@@ -37,6 +35,7 @@ interface MusicPlayerProps {
 
 const MusicPlayer = ({ url, isMinimized = false, onClose, autoPlay = false }: MusicPlayerProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -50,7 +49,7 @@ const MusicPlayer = ({ url, isMinimized = false, onClose, autoPlay = false }: Mu
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || urlInfo.type !== "direct") return;
 
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const handleLoadedMetadata = () => {
@@ -77,20 +76,19 @@ const MusicPlayer = ({ url, isMinimized = false, onClose, autoPlay = false }: Mu
       audio.removeEventListener("error", handleError);
       audio.removeEventListener("canplay", handleCanPlay);
     };
-  }, []);
+  }, [urlInfo.type]);
 
-  // Auto-play when autoPlay prop is true
+  // Auto-play when autoPlay prop is true (for direct audio)
   useEffect(() => {
-    if (autoPlay && audioRef.current && !hasAutoPlayed.current && !isLoading && !error) {
+    if (autoPlay && audioRef.current && !hasAutoPlayed.current && !isLoading && !error && urlInfo.type === "direct") {
       audioRef.current.play().then(() => {
         setIsPlaying(true);
         hasAutoPlayed.current = true;
       }).catch(() => {
-        // Auto-play was prevented by browser
         console.log("Auto-play prevented by browser");
       });
     }
-  }, [autoPlay, isLoading, error]);
+  }, [autoPlay, isLoading, error, urlInfo.type]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -99,15 +97,15 @@ const MusicPlayer = ({ url, isMinimized = false, onClose, autoPlay = false }: Mu
   }, [volume, isMuted]);
 
   const togglePlay = useCallback(() => {
-    if (!audioRef.current) return;
-    
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
+    if (urlInfo.type === "direct" && audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
     }
-    setIsPlaying(!isPlaying);
-  }, [isPlaying]);
+  }, [isPlaying, urlInfo.type]);
 
   const handleSeek = (value: number[]) => {
     if (audioRef.current) {
@@ -127,48 +125,116 @@ const MusicPlayer = ({ url, isMinimized = false, onClose, autoPlay = false }: Mu
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // For YouTube/Spotify, show external player message
-  if (urlInfo.type === "youtube" || urlInfo.type === "spotify") {
+  // YouTube embed player (audio only - hidden video)
+  if (urlInfo.type === "youtube" && urlInfo.id) {
+    const embedUrl = `https://www.youtube.com/embed/${urlInfo.id}?autoplay=${autoPlay ? 1 : 0}&loop=1&playlist=${urlInfo.id}&controls=0&modestbranding=1&rel=0&showinfo=0`;
+    
     return (
       <div className={cn(
-        "rounded-2xl bg-card/40 backdrop-blur-xl border border-border/30 p-4",
-        isMinimized && "p-2"
+        "rounded-2xl bg-card/40 backdrop-blur-xl border border-border/30",
+        isMinimized ? "p-3" : "p-4"
       )}>
+        {/* Hidden YouTube iframe */}
+        <iframe
+          ref={iframeRef}
+          src={embedUrl}
+          className="hidden"
+          allow="autoplay; encrypted-media"
+          title="YouTube audio player"
+        />
+        
         <div className="flex items-center gap-4">
-          {/* Spinning disc */}
+          {/* Always spinning disc - black/white grayscale */}
           <div className={cn(
             "relative flex-shrink-0",
-            isMinimized ? "w-8 h-8" : "w-16 h-16"
+            isMinimized ? "w-10 h-10" : "w-16 h-16"
           )}>
-            <div className={cn(
-              "absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-primary/10",
-              isPlaying && "animate-spin"
-            )} style={{ animationDuration: "3s" }}>
-              <Disc3 className="w-full h-full text-primary/50" />
+            <div 
+              className="absolute inset-0 rounded-full bg-gradient-to-br from-foreground/20 to-foreground/5 flex items-center justify-center animate-spin grayscale"
+              style={{ animationDuration: "3s" }}
+            >
+              <Disc3 className={cn(
+                "text-foreground/40",
+                isMinimized ? "w-8 h-8" : "w-12 h-12"
+              )} />
             </div>
+            <div className={cn(
+              "absolute rounded-full bg-background",
+              isMinimized ? "inset-[35%]" : "inset-[30%]"
+            )} />
           </div>
           
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 space-y-2">
             <p className="text-xs text-muted-foreground truncate">
-              {urlInfo.type === "youtube" ? "YouTube" : "Spotify"} audio
+              YouTube Audio • Playing in background
             </p>
-            <p className="text-xs text-muted-foreground/60 mt-1">
-              Open in new tab to play
-            </p>
-            <a 
-              href={url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-xs text-primary hover:underline mt-1 inline-block"
-            >
-              Open player →
-            </a>
+            
+            {/* Simple indicator */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="w-1 h-3 bg-primary rounded-full animate-pulse" />
+                <span className="w-1 h-4 bg-primary rounded-full animate-pulse" style={{ animationDelay: "0.1s" }} />
+                <span className="w-1 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
+                <span className="w-1 h-5 bg-primary rounded-full animate-pulse" style={{ animationDelay: "0.3s" }} />
+                <span className="w-1 h-3 bg-primary rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+              </div>
+              <span className="text-xs text-muted-foreground/60">Streaming</span>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // Spotify embed player
+  if (urlInfo.type === "spotify" && urlInfo.id) {
+    // Determine if it's a track, playlist, or album
+    const spotifyType = url.includes("/track/") ? "track" : url.includes("/playlist/") ? "playlist" : "album";
+    const embedUrl = `https://open.spotify.com/embed/${spotifyType}/${urlInfo.id}?utm_source=generator&theme=0`;
+    
+    return (
+      <div className={cn(
+        "rounded-2xl bg-card/40 backdrop-blur-xl border border-border/30 overflow-hidden",
+        isMinimized ? "p-2" : ""
+      )}>
+        <div className="flex items-center gap-4 p-4">
+          {/* Always spinning disc */}
+          <div className={cn(
+            "relative flex-shrink-0",
+            isMinimized ? "w-10 h-10" : "w-12 h-12"
+          )}>
+            <div 
+              className="absolute inset-0 rounded-full bg-gradient-to-br from-foreground/20 to-foreground/5 flex items-center justify-center animate-spin grayscale"
+              style={{ animationDuration: "3s" }}
+            >
+              <Disc3 className="w-10 h-10 text-foreground/40" />
+            </div>
+            <div className="absolute rounded-full bg-background inset-[30%]" />
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground">Spotify Player</p>
+            <p className="text-xs text-muted-foreground/60">Use controls below</p>
+          </div>
+        </div>
+        
+        {/* Spotify embed - compact player */}
+        {!isMinimized && (
+          <iframe
+            src={embedUrl}
+            width="100%"
+            height="80"
+            frameBorder="0"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            className="rounded-b-xl"
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Direct audio player
   return (
     <div className={cn(
       "rounded-2xl bg-card/40 backdrop-blur-xl border border-border/30",

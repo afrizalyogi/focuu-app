@@ -240,7 +240,7 @@ const Work = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Custom background */}
-      {isPro && (preferences.backgroundUrl || preferences.backgroundType !== "none") && (
+      {isPro && preferences.backgroundUrl && preferences.backgroundType !== "none" && (
         <CustomBackground 
           imageUrl={preferences.backgroundType === "image" ? preferences.backgroundUrl : undefined}
           videoUrl={preferences.backgroundType === "video" ? preferences.backgroundUrl : undefined}
