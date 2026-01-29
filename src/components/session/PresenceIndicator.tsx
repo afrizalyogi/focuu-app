@@ -11,12 +11,12 @@ const PresenceIndicator = ({ count, maxCircles = 3 }: PresenceIndicatorProps) =>
   
   return (
     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      {/* Avatar circles */}
+      {/* Avatar circles - green, full opacity */}
       <div className="flex -space-x-2">
         {[...Array(displayCount)].map((_, i) => (
           <span
             key={i}
-            className="w-5 h-5 rounded-full bg-focuu-presence/80 border-2 border-background"
+            className="w-5 h-5 rounded-full bg-focuu-presence border-2 border-background"
           />
         ))}
         {overflow > 0 && (

@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/layout/Navbar";
 import GlassOrbs from "@/components/landing/GlassOrbs";
+import ActivityHeatmap from "@/components/work/ActivityHeatmap";
 import { 
   Users, 
   TrendingUp, 
@@ -40,6 +41,7 @@ interface BehaviorStats {
   topEvents: { event_type: string; count: number }[];
   sessionsByHour: number[];
   dropOffPoints: { page: string; count: number }[];
+  heatmapData: { date: string; count: number }[];
 }
 
 const AdminDashboard = () => {
@@ -176,10 +178,21 @@ const AdminDashboard = () => {
           .sort((a, b) => b.count - a.count)
           .slice(0, 5);
 
+        // Heatmap data - group by date
+        const dateCounts: Record<string, number> = {};
+        analytics.forEach(a => {
+          const date = a.created_at.split('T')[0];
+          dateCounts[date] = (dateCounts[date] || 0) + 1;
+        });
+        const heatmapData = Object.entries(dateCounts)
+          .map(([date, count]) => ({ date, count }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+
         setBehaviorStats({
           topEvents,
           sessionsByHour: hourCounts,
           dropOffPoints,
+          heatmapData,
         });
       }
     };
@@ -304,6 +317,7 @@ const AdminDashboard = () => {
           <Tabs defaultValue="behavior" className="space-y-6">
             <TabsList className="bg-card/40 backdrop-blur-xl border border-border/30">
               <TabsTrigger value="behavior">Behavior</TabsTrigger>
+              <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
               <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
               <TabsTrigger value="sessions">Sessions</TabsTrigger>
             </TabsList>
@@ -373,6 +387,21 @@ const AdminDashboard = () => {
                   </Card>
                 </>
               )}
+            </TabsContent>
+
+            <TabsContent value="heatmap" className="space-y-6">
+              <Card className="bg-card/40 backdrop-blur-xl border-border/30">
+                <CardHeader>
+                  <CardTitle>Activity Heatmap (Last 12 Weeks)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {behaviorStats?.heatmapData && behaviorStats.heatmapData.length > 0 ? (
+                    <ActivityHeatmap data={behaviorStats.heatmapData} weeks={12} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No activity data available</p>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="onboarding" className="space-y-6">

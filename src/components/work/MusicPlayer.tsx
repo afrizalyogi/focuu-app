@@ -3,11 +3,7 @@ import { Disc3, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "luc
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
-interface MusicPlayerProps {
-  url: string;
-  isMinimized?: boolean;
-  onClose?: () => void;
-}
+// Props defined below in component
 
 // Extract audio URL from various sources
 const extractAudioUrl = (url: string): { type: "direct" | "youtube" | "spotify" | "unsupported"; id?: string } => {
@@ -32,7 +28,14 @@ const extractAudioUrl = (url: string): { type: "direct" | "youtube" | "spotify" 
   return { type: "direct" };
 };
 
-const MusicPlayer = ({ url, isMinimized = false, onClose }: MusicPlayerProps) => {
+interface MusicPlayerProps {
+  url: string;
+  isMinimized?: boolean;
+  onClose?: () => void;
+  autoPlay?: boolean;
+}
+
+const MusicPlayer = ({ url, isMinimized = false, onClose, autoPlay = false }: MusicPlayerProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -41,6 +44,7 @@ const MusicPlayer = ({ url, isMinimized = false, onClose }: MusicPlayerProps) =>
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasAutoPlayed = useRef(false);
 
   const urlInfo = extractAudioUrl(url);
 
@@ -74,6 +78,19 @@ const MusicPlayer = ({ url, isMinimized = false, onClose }: MusicPlayerProps) =>
       audio.removeEventListener("canplay", handleCanPlay);
     };
   }, []);
+
+  // Auto-play when autoPlay prop is true
+  useEffect(() => {
+    if (autoPlay && audioRef.current && !hasAutoPlayed.current && !isLoading && !error) {
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+        hasAutoPlayed.current = true;
+      }).catch(() => {
+        // Auto-play was prevented by browser
+        console.log("Auto-play prevented by browser");
+      });
+    }
+  }, [autoPlay, isLoading, error]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -160,20 +177,17 @@ const MusicPlayer = ({ url, isMinimized = false, onClose }: MusicPlayerProps) =>
       <audio ref={audioRef} src={url} preload="metadata" />
       
       <div className="flex items-center gap-4">
-        {/* Spinning disc */}
+        {/* Always spinning disc - black/white grayscale */}
         <div className={cn(
           "relative flex-shrink-0",
           isMinimized ? "w-10 h-10" : "w-16 h-16"
         )}>
           <div 
-            className={cn(
-              "absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center",
-              isPlaying && "animate-spin"
-            )} 
+            className="absolute inset-0 rounded-full bg-gradient-to-br from-foreground/20 to-foreground/5 flex items-center justify-center animate-spin grayscale"
             style={{ animationDuration: "3s" }}
           >
             <Disc3 className={cn(
-              "text-primary/60",
+              "text-foreground/40",
               isMinimized ? "w-8 h-8" : "w-12 h-12"
             )} />
           </div>

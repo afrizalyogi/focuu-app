@@ -59,6 +59,7 @@ const Work = () => {
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [onboardingApplied, setOnboardingApplied] = useState(false);
   const [isOnBreak, setIsOnBreak] = useState(false);
+  const [onboardingData, setOnboardingData] = useState<any>(null);
   const sessionStartRef = useRef<Date | null>(null);
 
   // Use trial access for Pro features
@@ -74,6 +75,7 @@ const Work = () => {
     const locationState = location.state as any;
     if (locationState?.fromOnboarding) {
       applyOnboardingSettings(locationState);
+      setOnboardingData(locationState);
       setOnboardingApplied(true);
       return;
     }
@@ -82,6 +84,7 @@ const Work = () => {
     const storedData = getOnboardingData();
     if (storedData) {
       applyOnboardingSettings(storedData);
+      setOnboardingData(storedData);
       setOnboardingApplied(true);
     }
   }, [location.state, onboardingApplied]);
@@ -346,10 +349,10 @@ const Work = () => {
                     <FullscreenButton size="sm" />
                   </div>
 
-                  {/* Music player during work */}
+                  {/* Music player during work - autoplay enabled */}
                   {preferences.musicUrl && (
                     <div className="mt-8 w-full max-w-xs">
-                      <MusicPlayer url={preferences.musicUrl} isMinimized />
+                      <MusicPlayer url={preferences.musicUrl} isMinimized autoPlay />
                     </div>
                   )}
 
@@ -362,24 +365,35 @@ const Work = () => {
             {/* Setup Phase - Dashboard-like grid */}
             {phase === "setup" && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 animate-fade-up">
-                {/* LEFT: Timer & Task Planning */}
+                {/* LEFT: Main Focus Area - Timer & Core Setup */}
                 <div className="lg:col-span-7 space-y-6">
-                  {/* Session Setup Card - Hero */}
-                  <div className="p-8 rounded-3xl bg-card/40 backdrop-blur-xl border border-border/30 text-center">
-                    {/* Streak Display */}
+                  {/* Session Setup Card - Hero with enhanced focus */}
+                  <div className="p-10 rounded-3xl bg-gradient-to-br from-card/60 to-card/30 backdrop-blur-xl border border-border/40 text-center shadow-2xl">
+                    {/* Streak Display - Prominent */}
                     {streak.currentStreak > 0 && (
-                      <div className="flex justify-center mb-6">
+                      <div className="flex justify-center mb-8">
                         <StreakDisplay 
                           currentStreak={streak.currentStreak}
                           longestStreak={streak.longestStreak}
                           isActiveToday={isStreakActiveToday()}
                           isAtRisk={isStreakAtRisk()}
-                          size="sm"
+                          size="lg"
                         />
                       </div>
                     )}
                     
-                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-4">
+                    {/* Onboarding-based greeting */}
+                    {onboardingData?.toneMode && (
+                      <div className="mb-6 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 inline-block">
+                        <p className="text-xs text-primary">
+                          {onboardingData.toneMode === "brutal" && "Push mode active — let's go hard"}
+                          {onboardingData.toneMode === "medium" && "Steady pace — focused and calm"}
+                          {onboardingData.toneMode === "affirmative" && "Support mode — you've got this"}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <p className="text-sm text-muted-foreground uppercase tracking-widest mb-6">
                       Ready to focus
                     </p>
                     
@@ -391,7 +405,7 @@ const Work = () => {
                       />
                     </div>
                     
-                    <p className="text-xs text-muted-foreground/60 mb-6">
+                    <p className="text-xs text-muted-foreground/60 mb-8">
                       {timerMode === "pomodoro" 
                         ? "Work sessions with scheduled breaks" 
                         : "Stopwatch mode — work as long as you want, pause anytime"}
@@ -412,10 +426,15 @@ const Work = () => {
                     <Button
                       onClick={handleStart}
                       size="lg"
-                      className="mt-8 px-12 py-6 text-base font-medium rounded-full transition-calm hover:scale-[1.02] bg-primary/90 hover:bg-primary"
+                      className="mt-10 px-14 py-7 text-lg font-medium rounded-full transition-calm hover:scale-[1.02] bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25"
                     >
                       {timerMode === "flexible" ? "Start Stopwatch" : "Begin Session"}
                     </Button>
+                    
+                    {/* Presence indicator in hero */}
+                    <div className="mt-8 flex justify-center">
+                      <PresenceIndicator count={presenceCount} />
+                    </div>
                   </div>
 
                   {/* Task Planner */}
