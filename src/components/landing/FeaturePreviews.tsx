@@ -34,11 +34,11 @@ const FeaturePreviews = () => {
       preview: <ChatPreview />,
     },
     {
-      id: "insights",
+      id: "analytics",
       icon: BarChart3,
-      title: "Work Insights",
-      description: "Track your presence over time.",
-      preview: <InsightsPreview />,
+      title: "Work Analytics",
+      description: "Track progress, compare weeks, forecast growth.",
+      preview: <AnalyticsPreview />,
     },
     {
       id: "themes",
@@ -258,33 +258,45 @@ const ChatPreview = () => {
   );
 };
 
-const InsightsPreview = () => {
-  const days = ["M", "T", "W", "T", "F", "S", "S"];
-  const activity = [3, 5, 2, 4, 6, 1, 0];
-  
+const AnalyticsPreview = () => {
   return (
-    <div className="text-center animate-fade-in">
-      <div className="grid grid-cols-7 gap-2 mb-4">
-        {days.map((day, i) => (
-          <div key={i} className="flex flex-col items-center gap-2">
-            <div 
-              className={`w-8 h-8 rounded-lg transition-colors ${
-                activity[i] > 0 
-                  ? "bg-primary" 
-                  : "bg-secondary/50"
-              }`}
-              style={{ opacity: activity[i] > 0 ? 0.3 + (activity[i] * 0.15) : 0.3 }}
-            />
-            <span className="text-xs text-muted-foreground">{day}</span>
-          </div>
-        ))}
+    <div className="w-full max-w-xs animate-fade-in">
+      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4 text-center">
+        Weekly Comparison
+      </p>
+      
+      {/* Mini chart */}
+      <div className="bg-secondary/30 rounded-xl p-4 border border-border/30 mb-3">
+        <div className="flex items-end justify-between gap-1 h-20">
+          {[40, 65, 45, 80, 55, 70, 90].map((height, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <div 
+                className="w-full bg-primary/60 rounded-t"
+                style={{ height: `${height}%` }}
+              />
+              <span className="text-[9px] text-muted-foreground/60">
+                {["M", "T", "W", "T", "F", "S", "S"][i]}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-      <p className="text-sm text-muted-foreground mt-4">
-        6 sessions this week
-      </p>
-      <p className="text-xs text-muted-foreground/50">
-        Keep showing up
-      </p>
+      
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="bg-secondary/20 rounded-lg p-2">
+          <p className="text-lg font-bold text-primary">↑12%</p>
+          <p className="text-[9px] text-muted-foreground">vs last week</p>
+        </div>
+        <div className="bg-secondary/20 rounded-lg p-2">
+          <p className="text-lg font-bold text-foreground">8.5h</p>
+          <p className="text-[9px] text-muted-foreground">total focus</p>
+        </div>
+        <div className="bg-secondary/20 rounded-lg p-2">
+          <p className="text-lg font-bold text-green-500">5</p>
+          <p className="text-[9px] text-muted-foreground">day streak</p>
+        </div>
+      </div>
     </div>
   );
 };
