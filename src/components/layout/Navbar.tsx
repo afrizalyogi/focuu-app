@@ -74,26 +74,26 @@ const Navbar = ({ showPresence }: NavbarProps) => {
                   )}
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-48 bg-popover border-border">
                 <div className="px-2 py-1.5">
-                  <p className="text-sm font-medium truncate">
+                  <p className="text-sm font-medium truncate text-foreground">
                     {user.email}
                   </p>
                   {isPro && (
                     <p className="text-xs text-primary">Pro member</p>
                   )}
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/app")}>
+                <DropdownMenuSeparator className="bg-border" />
+                <DropdownMenuItem onClick={() => navigate("/app")} className="text-foreground hover:bg-accent">
                   <User className="mr-2 h-4 w-4" />
                   Dashboard
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/app/settings")}>
+                <DropdownMenuItem onClick={() => navigate("/app/settings")} className="text-foreground hover:bg-accent">
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <DropdownMenuSeparator className="bg-border" />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive hover:bg-destructive/10">
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign out
                 </DropdownMenuItem>
