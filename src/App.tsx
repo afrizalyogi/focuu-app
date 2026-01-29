@@ -10,7 +10,6 @@ import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import AppDashboard from "./pages/AppDashboard";
 import History from "./pages/History";
-import SavedModes from "./pages/SavedModes";
 import Settings from "./pages/Settings";
 import Pricing from "./pages/Pricing";
 import Privacy from "./pages/Privacy";
@@ -60,14 +59,6 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <History />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="/app/modes"
-      element={
-        <ProtectedRoute>
-          <SavedModes />
         </ProtectedRoute>
       }
     />
