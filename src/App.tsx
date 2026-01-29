@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Landing from "./pages/Landing";
 import Work from "./pages/Work";
+import Onboarding from "./pages/Onboarding";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import AppDashboard from "./pages/AppDashboard";
@@ -40,6 +41,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Landing />} />
+    <Route path="/onboarding" element={<Onboarding />} />
     <Route path="/work" element={<Work />} />
     <Route path="/auth" element={<Auth />} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
