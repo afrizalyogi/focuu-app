@@ -9,7 +9,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ArrowRight, User, Settings, LogOut, Crown } from "lucide-react";
+import { ArrowRight, User, Settings, LogOut, Crown, Shield } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NavbarProps {
   showPresence?: React.ReactNode;
@@ -20,6 +22,28 @@ const Navbar = ({ showPresence }: NavbarProps) => {
   const location = useLocation();
   const { user, profile, signOut } = useAuth();
   const isPro = profile?.is_pro ?? false;
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      setIsAdmin(!error && !!data);
+    };
+
+    checkAdmin();
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -72,6 +96,9 @@ const Navbar = ({ showPresence }: NavbarProps) => {
                   {isPro && (
                     <Crown className="w-4 h-4 text-primary" />
                   )}
+                  {isAdmin && (
+                    <Shield className="w-4 h-4 text-orange-500" />
+                  )}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 bg-popover border-border">
@@ -79,9 +106,14 @@ const Navbar = ({ showPresence }: NavbarProps) => {
                   <p className="text-sm font-medium truncate text-foreground">
                     {user.email}
                   </p>
-                  {isPro && (
-                    <p className="text-xs text-primary">Pro member</p>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isPro && (
+                      <p className="text-xs text-primary">Pro member</p>
+                    )}
+                    {isAdmin && (
+                      <p className="text-xs text-orange-500">Admin</p>
+                    )}
+                  </div>
                 </div>
                 <DropdownMenuSeparator className="bg-border" />
                 <DropdownMenuItem onClick={() => navigate("/app")} className="text-foreground hover:bg-accent">
@@ -92,6 +124,15 @@ const Navbar = ({ showPresence }: NavbarProps) => {
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator className="bg-border" />
+                    <DropdownMenuItem onClick={() => navigate("/admin")} className="text-orange-500 hover:bg-orange-500/10">
+                      <Shield className="mr-2 h-4 w-4" />
+                      Admin Dashboard
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator className="bg-border" />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive hover:bg-destructive/10">
                   <LogOut className="mr-2 h-4 w-4" />
