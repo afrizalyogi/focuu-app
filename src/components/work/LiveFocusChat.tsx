@@ -10,6 +10,7 @@ interface ChatMessage {
   user_id?: string;
   message: string;
   created_at: string;
+  username?: string;
 }
 
 interface LiveFocusChatProps {
@@ -163,6 +164,11 @@ const LiveFocusChat = ({ isPro, onUpgradeClick, isWorkingSession = false }: Live
                 <span className="text-muted-foreground/40 text-xs mr-2">
                   {formatTime(msg.created_at)}
                 </span>
+                {msg.username && (
+                  <span className="text-muted-foreground/60 text-xs mr-1">
+                    {msg.username}:
+                  </span>
+                )}
                 {msg.message}
               </div>
             ))

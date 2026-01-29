@@ -5,17 +5,31 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Clock, Timer, ArrowLeft, Download } from "lucide-react";
 import { HistoryPageSkeleton } from "@/components/ui/skeleton-loaders";
 import ExportDialog from "@/components/history/ExportDialog";
-import { useState } from "react";
+import TimeRangeSelector, { TimeRange } from "@/components/work/TimeRangeSelector";
+import { useState, useMemo } from "react";
 
 const History = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { sessions, isLoading, getDaySummaries, getTotalStats } = useSessionHistory();
   const [showExport, setShowExport] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRange>("weekly");
 
   const isPro = profile?.is_pro ?? false;
+
+  // Calculate days based on time range
+  const rangeDays = useMemo(() => {
+    switch (timeRange) {
+      case "daily": return 1;
+      case "weekly": return 7;
+      case "monthly": return 30;
+      case "yearly": return 365;
+      default: return 7;
+    }
+  }, [timeRange]);
+
   const stats = getTotalStats();
-  const daySummaries = getDaySummaries(isPro ? 30 : 1);
+  const daySummaries = getDaySummaries(isPro ? rangeDays : 1);
 
   const isLimited = !isPro;
 
@@ -73,9 +87,19 @@ const History = () => {
           <h1 className="text-2xl font-semibold text-foreground mb-2">
             Presence history
           </h1>
-          <p className="text-muted-foreground mb-10">
+          <p className="text-muted-foreground mb-6">
             Not a score. Just proof you were here.
           </p>
+
+          {/* Time Range Selector - Pro only */}
+          {isPro && (
+            <div className="mb-8">
+              <TimeRangeSelector 
+                value={timeRange} 
+                onChange={setTimeRange}
+              />
+            </div>
+          )}
 
           {/* Overall stats */}
           <div className="grid grid-cols-3 gap-3 mb-12">
