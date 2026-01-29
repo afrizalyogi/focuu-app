@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, ArrowLeft, Sparkles, Zap, Crown } from "lucide-react";
+import { Check, ArrowLeft, Sparkles, Zap, Crown, Palette, BarChart3, Music, Image } from "lucide-react";
 
 type PlanType = "monthly" | "yearly" | "lifetime";
 
@@ -21,17 +21,16 @@ const Pricing = () => {
   const [selectedPlan, setSelectedPlan] = useState<PlanType>("yearly");
 
   const plans = {
-    monthly: { price: 4, period: "/month", savings: null, label: "Monthly" },
-    yearly: { price: 36, period: "/year", savings: "Save 25%", label: "Yearly" },
-    lifetime: { price: 79, period: "once", savings: "Best value", label: "Lifetime" },
+    monthly: { price: 4, period: "/month", savings: null, label: "Monthly", description: "Billed monthly" },
+    yearly: { price: 36, period: "/year", savings: "Save 25%", label: "Yearly", description: "$3/month billed annually" },
+    lifetime: { price: 79, period: "once", savings: "Best value", label: "Lifetime", description: "Pay once, own forever" },
   };
 
-  const handleUpgrade = (plan: PlanType) => {
+  const handleCheckout = () => {
     if (!user) {
       navigate("/auth");
       return;
     }
-    setSelectedPlan(plan);
     setShowCheckout(true);
   };
 
@@ -46,16 +45,32 @@ const Pricing = () => {
 
   const isPro = profile?.is_pro ?? false;
 
-  const proFeatures = [
+  // Highlighted features - personalization & analytics first
+  const highlightedFeatures = [
+    {
+      icon: Palette,
+      title: "Personalization",
+      items: [
+        "Custom backgrounds — image or video",
+        "Custom themes — personalize your space",
+        "Ambient music player — YouTube, Spotify",
+      ],
+    },
+    {
+      icon: BarChart3,
+      title: "Analytics & Insights",
+      items: [
+        "Work analytics — track your progress",
+        "Daily streak tracking — stay consistent",
+        "Presence history — proof you were here",
+      ],
+    },
+  ];
+
+  const otherFeatures = [
     "Unlimited tasks — with 3 focus highlights",
-    "Custom backgrounds — image or video",
-    "Ambient music player — YouTube, Spotify",
-    "Daily streak tracking — stay consistent",
     "Session notes — capture insights",
-    "Work analytics — track your progress",
-    "Custom themes — personalize your space",
     "Time boundaries — permission to stop",
-    "Presence history — proof you were here",
   ];
 
   return (
@@ -76,91 +91,141 @@ const Pricing = () => {
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-20">
         <div className="max-w-4xl w-full animate-fade-up">
           {/* Header */}
-          <div className="text-center mb-12">
+          <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm mb-4">
               <Sparkles className="w-4 h-4" />
               <span>Pro</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-semibold text-foreground mb-3">
-              Remove small frictions
+              Make it truly yours
             </h1>
             <p className="text-muted-foreground text-lg max-w-md mx-auto">
-              focuu Pro gives you more room to work — without the noise.
+              Personalize your workspace and track your focus journey with Pro.
             </p>
           </div>
 
-          {/* Plan selector */}
           {!isPro && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-              {(["monthly", "yearly", "lifetime"] as PlanType[]).map((plan) => {
-                const planData = plans[plan];
-                const isPopular = plan === "yearly";
-                const isBest = plan === "lifetime";
-                
-                return (
-                  <button
-                    key={plan}
-                    onClick={() => handleUpgrade(plan)}
-                    className={`relative p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
-                      isPopular 
-                        ? "border-primary bg-primary/5" 
-                        : "border-border/50 bg-card/30 hover:border-border"
-                    }`}
+            <>
+              {/* Highlighted features - Personalization & Analytics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                {highlightedFeatures.map((feature, idx) => (
+                  <div 
+                    key={idx} 
+                    className="rounded-2xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm"
                   >
-                    {planData.savings && (
-                      <span className={`absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        isBest ? "bg-yellow-500/20 text-yellow-500" : "bg-primary/20 text-primary"
-                      }`}>
-                        {planData.savings}
-                      </span>
-                    )}
-                    
-                    <div className="flex items-center justify-center gap-2 mb-3">
-                      {isPopular && <Zap className="w-4 h-4 text-primary" />}
-                      {isBest && <Crown className="w-4 h-4 text-yellow-500" />}
-                      <span className="font-medium text-foreground">{planData.label}</span>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <feature.icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <h3 className="font-semibold text-foreground">{feature.title}</h3>
                     </div>
-                    
-                    <div className="text-center">
-                      <span className="text-4xl font-bold text-foreground">${planData.price}</span>
-                      <span className="text-muted-foreground text-sm ml-1">{planData.period}</span>
-                    </div>
-                    
-                    {plan === "yearly" && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        $3/month billed annually
-                      </p>
-                    )}
-                    {plan === "lifetime" && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Pay once, own forever
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    <ul className="space-y-2.5">
+                      {feature.items.map((item, i) => (
+                        <li key={i} className="flex items-start gap-2.5">
+                          <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm text-muted-foreground">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
 
-          {/* Pro features */}
-          <div className="mb-10 max-w-md mx-auto">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4 text-center">
-              What Pro quietly unlocks
-            </p>
-            <ul className="space-y-3">
-              {proFeatures.map((feature, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span className="text-foreground text-sm">{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+              {/* Other features */}
+              <div className="mb-10 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">
+                  Plus everything else
+                </p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {otherFeatures.map((feature, i) => (
+                    <span 
+                      key={i}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/50 text-sm text-muted-foreground"
+                    >
+                      <Check className="w-3 h-3 text-primary" />
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Plan selector */}
+              <div className="rounded-2xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm mb-6">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4 text-center">
+                  Choose your plan
+                </p>
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  {(["monthly", "yearly", "lifetime"] as PlanType[]).map((plan) => {
+                    const planData = plans[plan];
+                    const isSelected = selectedPlan === plan;
+                    const isPopular = plan === "yearly";
+                    const isBest = plan === "lifetime";
+                    
+                    return (
+                      <button
+                        key={plan}
+                        onClick={() => setSelectedPlan(plan)}
+                        className={`relative p-4 rounded-xl border-2 transition-all ${
+                          isSelected 
+                            ? "border-primary bg-primary/5 scale-[1.02]" 
+                            : "border-transparent bg-secondary/30 hover:bg-secondary/50"
+                        }`}
+                      >
+                        {planData.savings && (
+                          <span className={`absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
+                            isBest ? "bg-yellow-500/20 text-yellow-500" : "bg-primary/20 text-primary"
+                          }`}>
+                            {planData.savings}
+                          </span>
+                        )}
+                        
+                        <div className="flex items-center justify-center gap-1.5 mb-1">
+                          {isPopular && <Zap className="w-3.5 h-3.5 text-primary" />}
+                          {isBest && <Crown className="w-3.5 h-3.5 text-yellow-500" />}
+                          <span className="font-medium text-foreground text-sm">{planData.label}</span>
+                        </div>
+                        
+                        <div className="text-center">
+                          <span className="text-2xl font-bold text-foreground">${planData.price}</span>
+                          <span className="text-muted-foreground text-xs ml-0.5">{planData.period}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Selected plan details */}
+                <div className="text-center border-t border-border/50 pt-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {plans[selectedPlan].description}
+                  </p>
+                  <Button 
+                    onClick={handleCheckout}
+                    size="lg"
+                    className="px-8"
+                  >
+                    Continue with {plans[selectedPlan].label}
+                  </Button>
+                </div>
+              </div>
+
+              {/* No pressure note */}
+              <p className="text-xs text-muted-foreground/50 text-center">
+                focuu will still be here if you stay free.
+              </p>
+            </>
+          )}
 
           {/* CTA for Pro users */}
           {isPro && (
-            <div className="text-center">
-              <p className="text-foreground mb-4">You're on Pro.</p>
+            <div className="text-center py-10">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <p className="text-foreground text-lg mb-2">You're on Pro.</p>
+              <p className="text-muted-foreground text-sm mb-6">
+                Thank you for supporting focuu.
+              </p>
               <Button
                 variant="outline"
                 onClick={() => navigate("/app")}
@@ -170,11 +235,6 @@ const Pricing = () => {
               </Button>
             </div>
           )}
-
-          {/* No pressure note */}
-          <p className="text-xs text-muted-foreground/50 text-center mt-8">
-            focuu will still be here if you stay free.
-          </p>
         </div>
       </main>
 
@@ -194,17 +254,27 @@ const Pricing = () => {
             <div className="rounded-xl bg-secondary/50 p-4 space-y-2">
               <p className="text-sm font-medium">What you'll get:</p>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Unlimited tasks with focus highlights</li>
-                <li>• Custom backgrounds & music</li>
-                <li>• Daily streak tracking</li>
-                <li>• Work analytics & insights</li>
-                <li>• Session notes</li>
-                <li>• Time boundaries</li>
+                <li className="flex items-center gap-2">
+                  <Palette className="w-3.5 h-3.5 text-primary" />
+                  Custom backgrounds, themes & music
+                </li>
+                <li className="flex items-center gap-2">
+                  <BarChart3 className="w-3.5 h-3.5 text-primary" />
+                  Analytics, streaks & presence history
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-primary" />
+                  Unlimited tasks with focus highlights
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-primary" />
+                  Session notes & time boundaries
+                </li>
               </ul>
             </div>
 
             <div className="rounded-xl border border-border p-4 space-y-3">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Demo checkout</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Order summary</p>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>focuu Pro ({plans[selectedPlan].label})</span>

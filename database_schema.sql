@@ -385,5 +385,207 @@ CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);
 -- SELECT public.has_role('YOUR_USER_UUID_HERE', 'admin');
 
 -- ============================================
+-- STEP 7: SUBSCRIPTION MANAGEMENT TABLES
+-- ============================================
+
+-- 7a. Orders table - records all purchase attempts
+CREATE TABLE IF NOT EXISTS public.orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  plan_type TEXT NOT NULL CHECK (plan_type IN ('monthly', 'yearly', 'lifetime')),
+  amount_cents INTEGER NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),
+  payment_method TEXT,
+  payment_provider TEXT,
+  payment_provider_order_id TEXT,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+
+-- 7b. Payments table - records successful payments
+CREATE TABLE IF NOT EXISTS public.payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  payment_provider TEXT,
+  payment_provider_payment_id TEXT,
+  status TEXT NOT NULL DEFAULT 'succeeded' CHECK (status IN ('succeeded', 'refunded', 'disputed')),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
+-- 7c. Subscriptions table - tracks active subscription periods
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  plan_type TEXT NOT NULL CHECK (plan_type IN ('monthly', 'yearly', 'lifetime')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'cancelled')),
+  starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ends_at TIMESTAMPTZ, -- NULL for lifetime
+  auto_renew BOOLEAN DEFAULT false,
+  reminder_sent BOOLEAN DEFAULT false,
+  order_id UUID REFERENCES public.orders(id),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Orders policies
+DROP POLICY IF EXISTS "Users can view own orders" ON public.orders;
+CREATE POLICY "Users can view own orders" ON public.orders
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can create own orders" ON public.orders;
+CREATE POLICY "Users can create own orders" ON public.orders
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can manage all orders" ON public.orders;
+CREATE POLICY "Admins can manage all orders" ON public.orders
+  FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+
+-- Payments policies
+DROP POLICY IF EXISTS "Users can view own payments" ON public.payments;
+CREATE POLICY "Users can view own payments" ON public.payments
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can manage all payments" ON public.payments;
+CREATE POLICY "Admins can manage all payments" ON public.payments
+  FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+
+-- Subscriptions policies
+DROP POLICY IF EXISTS "Users can view own subscriptions" ON public.subscriptions;
+CREATE POLICY "Users can view own subscriptions" ON public.subscriptions
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can manage all subscriptions" ON public.subscriptions;
+CREATE POLICY "Admins can manage all subscriptions" ON public.subscriptions
+  FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON public.orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
+CREATE INDEX IF NOT EXISTS idx_payments_user_id ON public.payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_order_id ON public.payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON public.subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON public.subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_ends_at ON public.subscriptions(ends_at);
+
+-- Function to check and expire subscriptions (auto-downgrade)
+CREATE OR REPLACE FUNCTION public.check_expired_subscriptions()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  expired_count INTEGER := 0;
+  sub_record RECORD;
+BEGIN
+  FOR sub_record IN
+    SELECT s.id, s.user_id
+    FROM public.subscriptions s
+    WHERE s.status = 'active'
+      AND s.plan_type != 'lifetime'
+      AND s.ends_at IS NOT NULL
+      AND s.ends_at < now()
+  LOOP
+    UPDATE public.subscriptions
+    SET status = 'expired', updated_at = now()
+    WHERE id = sub_record.id;
+    
+    UPDATE public.profiles
+    SET is_pro = false, subscription_status = 'expired', updated_at = now()
+    WHERE id = sub_record.user_id;
+    
+    expired_count := expired_count + 1;
+  END LOOP;
+  
+  RETURN expired_count;
+END;
+$$;
+
+-- Function to activate subscription after successful payment
+CREATE OR REPLACE FUNCTION public.activate_subscription(
+  p_user_id UUID,
+  p_plan_type TEXT,
+  p_order_id UUID
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_ends_at TIMESTAMPTZ;
+  v_subscription_id UUID;
+BEGIN
+  CASE p_plan_type
+    WHEN 'monthly' THEN v_ends_at := now() + INTERVAL '1 month';
+    WHEN 'yearly' THEN v_ends_at := now() + INTERVAL '1 year';
+    WHEN 'lifetime' THEN v_ends_at := NULL;
+    ELSE RAISE EXCEPTION 'Invalid plan type: %', p_plan_type;
+  END CASE;
+  
+  UPDATE public.subscriptions
+  SET status = 'expired', updated_at = now()
+  WHERE user_id = p_user_id AND status = 'active';
+  
+  INSERT INTO public.subscriptions (user_id, plan_type, status, starts_at, ends_at, order_id)
+  VALUES (p_user_id, p_plan_type, 'active', now(), v_ends_at, p_order_id)
+  RETURNING id INTO v_subscription_id;
+  
+  UPDATE public.profiles
+  SET is_pro = true, subscription_status = 'pro', updated_at = now()
+  WHERE id = p_user_id;
+  
+  RETURN v_subscription_id;
+END;
+$$;
+
+-- Function to get user subscription status
+CREATE OR REPLACE FUNCTION public.get_subscription_status(p_user_id UUID)
+RETURNS TABLE (
+  is_active BOOLEAN,
+  plan_type TEXT,
+  ends_at TIMESTAMPTZ,
+  days_remaining INTEGER
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    s.status = 'active' AS is_active,
+    s.plan_type,
+    s.ends_at,
+    CASE 
+      WHEN s.ends_at IS NULL THEN NULL
+      WHEN s.ends_at > now() THEN EXTRACT(DAY FROM (s.ends_at - now()))::INTEGER
+      ELSE 0
+    END AS days_remaining
+  FROM public.subscriptions s
+  WHERE s.user_id = p_user_id
+    AND s.status = 'active'
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+  
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false, 'free'::TEXT, NULL::TIMESTAMPTZ, 0;
+  END IF;
+END;
+$$;
+
+-- ============================================
 -- DONE! All tables and functions are ready.
 -- ============================================
