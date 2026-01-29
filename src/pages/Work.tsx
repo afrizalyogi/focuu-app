@@ -254,8 +254,8 @@ const Work = () => {
         user={user}
         isPro={isPro}
         presenceCount={presenceCount}
-        onBack={phase === "setup" ? () => navigate("/") : handleStop}
-        backLabel={phase === "setup" ? "← Home" : "← End"}
+        onBack={phase === "setup" ? () => navigate("/app") : handleStop}
+        backLabel={phase === "setup" ? "← Back" : "← End"}
         getUserInitials={getUserInitials}
       />
 
