@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import Landing from "./pages/Landing";
 import Work from "./pages/Work";
 import Onboarding from "./pages/Onboarding";
@@ -40,58 +42,82 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Analytics tracker component
+const AnalyticsTracker = () => {
+  const location = useLocation();
+  const { trackPageView, syncLocalQueue } = useAnalytics();
+  const { user } = useAuth();
+
+  // Track page views
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname, trackPageView]);
+
+  // Sync local analytics queue when user logs in
+  useEffect(() => {
+    if (user) {
+      syncLocalQueue();
+    }
+  }, [user, syncLocalQueue]);
+
+  return null;
+};
+
 const AppRoutes = () => (
-  <Routes>
-    <Route path="/" element={<Landing />} />
-    <Route path="/onboarding" element={<Onboarding />} />
-    <Route path="/work" element={<Work />} />
-    <Route path="/auth" element={<Auth />} />
-    <Route path="/forgot-password" element={<ForgotPassword />} />
-    <Route path="/pricing" element={<Pricing />} />
-    <Route path="/privacy" element={<Privacy />} />
-    <Route path="/terms" element={<Terms />} />
-    <Route
-      path="/app"
-      element={
-        <ProtectedRoute>
-          <AppDashboard />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="/app/history"
-      element={
-        <ProtectedRoute>
-          <History />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="/app/settings"
-      element={
-        <ProtectedRoute>
-          <Settings />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="/app/analytics"
-      element={
-        <ProtectedRoute>
-          <UserAnalytics />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="/admin"
-      element={
-        <ProtectedRoute>
-          <AdminDashboard />
-        </ProtectedRoute>
-      }
-    />
-    <Route path="*" element={<NotFound />} />
-  </Routes>
+  <>
+    <AnalyticsTracker />
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/onboarding" element={<Onboarding />} />
+      <Route path="/work" element={<Work />} />
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/pricing" element={<Pricing />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route
+        path="/app"
+        element={
+          <ProtectedRoute>
+            <AppDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/history"
+        element={
+          <ProtectedRoute>
+            <History />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/analytics"
+        element={
+          <ProtectedRoute>
+            <UserAnalytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </>
 );
 
 const App = () => (
