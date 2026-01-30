@@ -7,7 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
 const emailSchema = z.string().email("Please enter a valid email");
-const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
+const passwordSchema = z
+  .string()
+  .min(6, "Password must be at least 6 characters");
 
 type AuthMode = "sign-up" | "sign-in" | "reset";
 
@@ -15,8 +17,9 @@ const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { signUp, signInWithPassword, signInWithGoogle, user } = useAuth();
-  
-  const initialMode = searchParams.get("mode") === "reset" ? "reset" : "sign-in";
+
+  const initialMode =
+    searchParams.get("mode") === "reset" ? "reset" : "sign-in";
   const [mode, setMode] = useState<AuthMode>(initialMode as AuthMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,12 +29,14 @@ const Auth = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Redirect if already logged in
+  // Redirect if already logged in (unless in preview mode for heatmap)
+  const isPreview = searchParams.get("preview") === "true";
+
   useEffect(() => {
-    if (user) {
+    if (user && !isPreview) {
       navigate("/app");
     }
-  }, [user, navigate]);
+  }, [user, navigate, isPreview]);
 
   if (user) {
     return null;
@@ -63,7 +68,7 @@ const Auth = () => {
     setMessage("");
 
     const { error } = await signUp(email.trim(), password);
-    
+
     if (error) {
       if (error.message.includes("already registered")) {
         setError("This email is already registered. Try signing in instead.");
@@ -73,7 +78,7 @@ const Auth = () => {
     } else {
       setMessage("Check your email to confirm your account");
     }
-    
+
     setIsLoading(false);
   };
 
@@ -85,7 +90,7 @@ const Auth = () => {
     setMessage("");
 
     const { error } = await signInWithPassword(email.trim(), password);
-    
+
     if (error) {
       if (error.message.includes("Invalid login")) {
         setError("Invalid email or password");
@@ -95,13 +100,13 @@ const Auth = () => {
     } else {
       navigate("/app");
     }
-    
+
     setIsLoading(false);
   };
 
   const handleResetPassword = async () => {
     if (!validatePassword()) return;
-    
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -112,14 +117,14 @@ const Auth = () => {
     setMessage("");
 
     const { error } = await supabase.auth.updateUser({ password });
-    
+
     if (error) {
       setError(error.message);
     } else {
       setMessage("Password updated successfully! Redirecting...");
       setTimeout(() => navigate("/app"), 2000);
     }
-    
+
     setIsLoading(false);
   };
 
@@ -161,15 +166,18 @@ const Auth = () => {
         <div className="w-full max-w-sm flex flex-col items-center gap-8 animate-fade-up">
           <div className="text-center">
             <h1 className="text-2xl font-medium text-foreground mb-2">
-              {mode === "sign-up" ? "Create account" : mode === "reset" ? "Set new password" : "Welcome back"}
+              {mode === "sign-up"
+                ? "Create account"
+                : mode === "reset"
+                  ? "Set new password"
+                  : "Welcome back"}
             </h1>
             <p className="text-muted-foreground text-sm">
               {mode === "sign-up"
                 ? "Sign up to save your progress"
                 : mode === "reset"
-                ? "Enter your new password"
-                : "Sign in to continue"
-              }
+                  ? "Enter your new password"
+                  : "Sign in to continue"}
             </p>
           </div>
 
@@ -210,7 +218,9 @@ const Auth = () => {
             )}
 
             {message && (
-              <p className="text-sm text-focuu-presence text-center">{message}</p>
+              <p className="text-sm text-focuu-presence text-center">
+                {message}
+              </p>
             )}
 
             <Button
@@ -218,14 +228,13 @@ const Auth = () => {
               className="w-full transition-calm"
               disabled={isLoading || isGoogleLoading}
             >
-              {isLoading 
-                ? "..." 
+              {isLoading
+                ? "..."
                 : mode === "sign-up"
-                ? "Create account"
-                : mode === "reset"
-                ? "Update password"
-                : "Sign in"
-              }
+                  ? "Create account"
+                  : mode === "reset"
+                    ? "Update password"
+                    : "Sign in"}
             </Button>
 
             {mode !== "reset" && (
@@ -235,7 +244,9 @@ const Auth = () => {
                     <span className="w-full border-t border-border" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">or</span>
+                    <span className="bg-background px-2 text-muted-foreground">
+                      or
+                    </span>
                   </div>
                 </div>
 
@@ -246,7 +257,9 @@ const Auth = () => {
                   onClick={handleGoogleSignIn}
                   disabled={isLoading || isGoogleLoading}
                 >
-                  {isGoogleLoading ? "..." : (
+                  {isGoogleLoading ? (
+                    "..."
+                  ) : (
                     <>
                       <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                         <path

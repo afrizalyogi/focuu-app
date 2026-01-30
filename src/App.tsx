@@ -3,9 +3,18 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { PermissionErrorModal } from "@/components/ui/PermissionErrorModal";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import ScrollToTop from "@/components/layout/ScrollToTop";
+import { InteractionTracker } from "@/components/analytics/InteractionTracker";
 import Landing from "./pages/Landing";
 import Work from "./pages/Work";
 import Onboarding from "./pages/Onboarding";
@@ -26,7 +35,7 @@ const queryClient = new QueryClient();
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -34,11 +43,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -65,7 +74,9 @@ const AnalyticsTracker = () => {
 
 const AppRoutes = () => (
   <>
+    <ScrollToTop />
     <AnalyticsTracker />
+    <InteractionTracker />
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/onboarding" element={<Onboarding />} />
@@ -124,6 +135,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
+        <PermissionErrorModal />
         <Toaster />
         <Sonner />
         <BrowserRouter>

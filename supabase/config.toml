@@ -9,7 +9,7 @@ max_rows = 1000
 
 [auth]
 enabled = true
-site_url = "https://focuu.lovable.app"
+site_url = "http://localhost:8080"
 
 [functions.send-subscription-reminder]
 verify_jwt = false

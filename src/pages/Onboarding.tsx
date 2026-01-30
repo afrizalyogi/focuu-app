@@ -16,18 +16,11 @@ const ONBOARDING_DATA_KEY = "focuu_onboarding_data";
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const [shouldShowOnboarding, setShouldShowOnboarding] = useState<boolean | null>(null);
+  const [shouldShowOnboarding, setShouldShowOnboarding] =
+    useState<boolean>(true);
 
-  useEffect(() => {
-    // Check if onboarding was already completed
-    const completed = localStorage.getItem(ONBOARDING_KEY);
-    if (completed === "true") {
-      // Skip onboarding, go directly to work
-      navigate("/work", { replace: true });
-    } else {
-      setShouldShowOnboarding(true);
-    }
-  }, [navigate]);
+  // Removed useEffect that checked for saved onboarding and redirected to /work.
+  // We want onboarding to run every time.
 
   const handleComplete = (data: OnboardingData) => {
     // Map energy to session length
@@ -57,9 +50,9 @@ const Onboarding = () => {
     localStorage.setItem(ONBOARDING_DATA_KEY, JSON.stringify(onboardingData));
 
     // Navigate to work with the onboarding data
-    navigate("/work", { 
+    navigate("/work", {
       replace: true,
-      state: { fromOnboarding: true, ...onboardingData }
+      state: { fromOnboarding: true, ...onboardingData },
     });
   };
 

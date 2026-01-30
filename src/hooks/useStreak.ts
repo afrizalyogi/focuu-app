@@ -1,134 +1,86 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-
-interface StreakData {
-  currentStreak: number;
-  longestStreak: number;
-  lastSessionDate: string | null;
-}
-
-const LOCAL_STREAK_KEY = "focuu_streak";
+import { useMemo } from "react";
+import { useSessionHistory } from "./useSessionHistory";
 
 export const useStreak = () => {
-  const { user } = useAuth();
-  const [streak, setStreak] = useState<StreakData>({
-    currentStreak: 0,
-    longestStreak: 0,
-    lastSessionDate: null,
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  const { sessions } = useSessionHistory();
 
-  // Fetch streak data
-  useEffect(() => {
-    const fetchStreak = async () => {
-      setIsLoading(true);
-      
-      if (user) {
-        const { data, error } = await supabase
-          .from("user_streaks")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle();
+  const streak = useMemo(() => {
+    if (!sessions || sessions.length === 0) return 0;
 
-        if (!error && data) {
-          setStreak({
-            currentStreak: data.current_streak,
-            longestStreak: data.longest_streak,
-            lastSessionDate: data.last_session_date,
-          });
-        }
-      } else {
-        // Load from localStorage for anonymous users
-        const stored = localStorage.getItem(LOCAL_STREAK_KEY);
-        if (stored) {
-          try {
-            setStreak(JSON.parse(stored));
-          } catch {
-            localStorage.removeItem(LOCAL_STREAK_KEY);
-          }
-        }
-      }
-      setIsLoading(false);
-    };
+    // Get unique dates
+    const uniqueDates = Array.from(new Set(sessions.map((s) => s.date)))
+      .sort()
+      .reverse();
 
-    fetchStreak();
-  }, [user]);
+    if (uniqueDates.length === 0) return 0;
 
-  // Update streak (call when session is completed)
-  const updateStreak = useCallback(async () => {
+    // Check if today or yesterday is present to start streak
     const today = new Date().toISOString().split("T")[0];
-    
-    if (user) {
-      // Use database function
-      const { data, error } = await supabase.rpc("update_user_streak", {
-        p_user_id: user.id,
-      });
+    const yesterday = new Date(Date.now() - 86400000)
+      .toISOString()
+      .split("T")[0];
 
-      if (!error && data !== null) {
-        setStreak((prev) => ({
-          ...prev,
-          currentStreak: data,
-          longestStreak: Math.max(prev.longestStreak, data),
-          lastSessionDate: today,
-        }));
-        return data;
-      }
-    } else {
-      // Update locally
-      setStreak((prev) => {
-        let newStreak: StreakData;
-        
-        if (prev.lastSessionDate === today) {
-          // Already updated today
-          newStreak = prev;
-        } else if (prev.lastSessionDate === getYesterday()) {
-          // Consecutive day
-          const newCurrentStreak = prev.currentStreak + 1;
-          newStreak = {
-            currentStreak: newCurrentStreak,
-            longestStreak: Math.max(prev.longestStreak, newCurrentStreak),
-            lastSessionDate: today,
-          };
-        } else {
-          // Streak broken or first day
-          newStreak = {
-            currentStreak: 1,
-            longestStreak: Math.max(prev.longestStreak, 1),
-            lastSessionDate: today,
-          };
-        }
-        
-        localStorage.setItem(LOCAL_STREAK_KEY, JSON.stringify(newStreak));
-        return newStreak;
-      });
+    // If no session today OR yesterday, streak is broken (0), unless we want to be lenient
+    // For "current streak", it should probably include today or be 0 if yesterday logic failed?
+    // Let's iterate.
+
+    let currentStreak = 0;
+    let expectedDate = new Date(); // Start checking from Today
+    let expectedStr = expectedDate.toISOString().split("T")[0];
+
+    // Optimization: find start index
+    // If most recent date is today, start counting.
+    // If most recent date is yesterday, start counting.
+    // If most recent date is older, streak is 0.
+
+    const latestDate = uniqueDates[0];
+    if (latestDate !== today && latestDate !== yesterday) {
+      return 0;
     }
-  }, [user]);
 
-  // Check if streak is active today
-  const isStreakActiveToday = useCallback(() => {
-    const today = new Date().toISOString().split("T")[0];
-    return streak.lastSessionDate === today;
-  }, [streak.lastSessionDate]);
+    // Now count consecutive days backwards
+    // We iterate uniqueDates.
+    // We need to match precise dates.
 
-  // Check if streak is at risk (no session yesterday or today)
-  const isStreakAtRisk = useCallback(() => {
-    const today = new Date().toISOString().split("T")[0];
-    const yesterday = getYesterday();
-    return streak.lastSessionDate !== today && streak.lastSessionDate !== yesterday;
-  }, [streak.lastSessionDate]);
+    // Convert uniqueDates to Map for O(1) lookup or just iterate?
+    // Since we reverse sorted, we can check sequentially.
 
-  return {
-    streak,
-    isLoading,
-    updateStreak,
-    isStreakActiveToday,
-    isStreakAtRisk,
-  };
+    let checkDate = new Date();
+    // Allow starting from Yesterday if Today is missing
+    if (latestDate === yesterday) {
+      checkDate = new Date(Date.now() - 86400000);
+    }
+
+    for (const dateStr of uniqueDates) {
+      // While dateStr matches checkDate...
+      // Wait, uniqueDates might have gaps?
+      // No, we are iterating uniqueDates.
+      // We need to ensure dateStr EQUALS checkDate string.
+
+      while (true) {
+        const checkStr = checkDate.toISOString().split("T")[0];
+        if (dateStr === checkStr) {
+          currentStreak++;
+          // Move checkDate back
+          checkDate.setDate(checkDate.getDate() - 1);
+          break; // Found match, go to next uniqueDate
+        } else if (dateStr < checkStr) {
+          // dateStr is older than expected checkStr. Gap detected.
+          // But wait, we might have skipped checking checkStr?
+          // Example: unique [Today, DayMin2].
+          // Loop 1: dateStr=Today. Match. checkDate becomes Yersterday.
+          // Loop 2: dateStr=DayMin2. checkStr=Yesterday. Mismatch.
+          return currentStreak;
+        } else {
+          // dateStr > checkStr. Impossible if sorted reverse and we started correctly.
+          // Should not happen if logic is sound.
+          return currentStreak;
+        }
+      }
+    }
+
+    return currentStreak;
+  }, [sessions]);
+
+  return { streak };
 };
-
-function getYesterday(): string {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-  return date.toISOString().split("T")[0];
-}

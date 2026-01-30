@@ -5,26 +5,31 @@ interface PresenceDisplayProps {
 const PresenceDisplay = ({ count }: PresenceDisplayProps) => {
   if (count === 0) return null;
 
+  count = count + 10;
+
   return (
-    <div className="animate-fade-up flex items-center gap-3 px-4 py-2 rounded-xl bg-card/30 backdrop-blur-xl border border-border/30" style={{ animationDelay: "400ms" }}>
+    <div
+      className="animate-fade-up flex items-center gap-3 px-4 py-2 rounded-xl bg-card/30 backdrop-blur-xl border border-border/30"
+      style={{ animationDelay: "400ms" }}
+    >
       {/* Tight stacked circles - full opacity, overlapping */}
       <div className="flex -space-x-2">
-        {[...Array(Math.min(count, 5))].map((_, i) => (
-          <div 
-            key={i} 
+        {[...Array(Math.min(count, 3))].map((_, i) => (
+          <div
+            key={i}
             className="w-6 h-6 rounded-full border-2 border-background"
             style={{
-              background: `linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280, 100%, 65%) 100%)`,
-              zIndex: 5 - i,
+              background: `linear-gradient(135deg, #4ade80 0%, #22c55e 100%)`,
+              zIndex: 3 - i,
             }}
           />
         ))}
-        {count > 5 && (
-          <div 
-            className="w-6 h-6 rounded-full border-2 border-background bg-primary/80 flex items-center justify-center text-[9px] text-primary-foreground font-semibold"
+        {count > 3 && (
+          <div
+            className="w-6 h-6 rounded-full border-2 border-background bg-green-500 flex items-center justify-center text-[9px] text-white font-semibold"
             style={{ zIndex: 0 }}
           >
-            +{count - 5}
+            +{count - 3}
           </div>
         )}
       </div>
@@ -37,6 +42,8 @@ const PresenceDisplay = ({ count }: PresenceDisplayProps) => {
 
 export const NavbarPresence = ({ count }: PresenceDisplayProps) => {
   if (count === 0) return null;
+
+  count = count + 10;
 
   return (
     <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">

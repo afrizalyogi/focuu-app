@@ -29,6 +29,35 @@ export const useSessionHistory = () => {
   useEffect(() => {
     const fetchSessions = async () => {
       if (user) {
+        // Sync local sessions to DB if they exist
+        const localSessions = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (localSessions) {
+          try {
+            const parsed = JSON.parse(localSessions);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const { error: syncError } = await supabase
+                .from("sessions")
+                .upsert(
+                  parsed.map((s: any) => ({
+                    id: s.id,
+                    user_id: user.id,
+                    energy_mode: s.energyMode,
+                    intent: s.intent,
+                    duration_minutes: s.durationMinutes,
+                    completed_at: s.completedAt,
+                  })),
+                );
+
+              if (!syncError) {
+                localStorage.removeItem(LOCAL_STORAGE_KEY);
+                console.log("Synced local sessions to database");
+              }
+            }
+          } catch (e) {
+            console.error("Error syncing local sessions:", e);
+          }
+        }
+
         setIsLoading(true);
         const { data, error } = await supabase
           .from("sessions")
@@ -65,77 +94,85 @@ export const useSessionHistory = () => {
     fetchSessions();
   }, [user]);
 
-  const recordSession = useCallback(async (
-    energyMode: EnergyMode,
-    intent: string | null,
-    durationMinutes: number
-  ) => {
-    const newSession: SessionRecord = {
-      id: crypto.randomUUID(),
-      date: new Date().toISOString().split("T")[0],
-      energyMode,
-      intent,
-      durationMinutes,
-      completedAt: new Date().toISOString(),
-    };
-
-    if (user) {
-      // Save to Supabase
-      const { error } = await supabase.from("sessions").insert({
-        id: newSession.id,
-        user_id: user.id,
-        energy_mode: energyMode,
+  const recordSession = useCallback(
+    async (
+      energyMode: EnergyMode,
+      intent: string | null,
+      durationMinutes: number,
+    ) => {
+      const newSession: SessionRecord = {
+        id: crypto.randomUUID(),
+        date: new Date().toISOString().split("T")[0],
+        energyMode,
         intent,
-        duration_minutes: durationMinutes,
-        completed_at: newSession.completedAt,
-      });
+        durationMinutes,
+        completedAt: new Date().toISOString(),
+      };
 
-      if (!error) {
-        setSessions((prev) => [newSession, ...prev].slice(0, 100));
+      if (user) {
+        // Save to Supabase
+        const { error } = await supabase.from("sessions").insert({
+          id: newSession.id,
+          user_id: user.id,
+          energy_mode: energyMode,
+          intent,
+          duration_minutes: durationMinutes,
+          completed_at: newSession.completedAt,
+        });
+
+        if (!error) {
+          setSessions((prev) => [newSession, ...prev].slice(0, 100));
+        }
+      } else {
+        // Save to localStorage for anonymous users
+        setSessions((prev) => {
+          const updated = [newSession, ...prev].slice(0, 100);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+          return updated;
+        });
       }
-    } else {
-      // Save to localStorage for anonymous users
-      setSessions((prev) => {
-        const updated = [newSession, ...prev].slice(0, 100);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-        return updated;
-      });
-    }
-  }, [user]);
+    },
+    [user],
+  );
 
-  const getDaySummaries = useCallback((days: number = 7): DaySummary[] => {
-    const summaryMap = new Map<string, DaySummary>();
-    
-    for (let i = 0; i < days; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
-      summaryMap.set(dateStr, {
-        date: dateStr,
-        sessionsCount: 0,
-        totalMinutes: 0,
-      });
-    }
+  const getDaySummaries = useCallback(
+    (days: number = 7): DaySummary[] => {
+      const summaryMap = new Map<string, DaySummary>();
 
-    sessions.forEach((session) => {
-      const summary = summaryMap.get(session.date);
-      if (summary) {
-        summary.sessionsCount += 1;
-        summary.totalMinutes += session.durationMinutes;
+      for (let i = 0; i < days; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split("T")[0];
+        summaryMap.set(dateStr, {
+          date: dateStr,
+          sessionsCount: 0,
+          totalMinutes: 0,
+        });
       }
-    });
 
-    return Array.from(summaryMap.values()).sort((a, b) => 
-      b.date.localeCompare(a.date)
-    );
-  }, [sessions]);
+      sessions.forEach((session) => {
+        const summary = summaryMap.get(session.date);
+        if (summary) {
+          summary.sessionsCount += 1;
+          summary.totalMinutes += session.durationMinutes;
+        }
+      });
+
+      return Array.from(summaryMap.values()).sort((a, b) =>
+        b.date.localeCompare(a.date),
+      );
+    },
+    [sessions],
+  );
 
   const getTotalStats = useCallback(() => {
     const daysPresent = new Set(sessions.map((s) => s.date)).size;
-    const totalMinutes = sessions.reduce((acc, s) => acc + s.durationMinutes, 0);
-    const avgSessionLength = sessions.length > 0 
-      ? Math.round(totalMinutes / sessions.length) 
-      : 0;
+    const totalMinutes = sessions.reduce(
+      (acc, s) => acc + s.durationMinutes,
+      0,
+    );
+    const avgSessionLength =
+      sessions.length > 0 ? Math.round(totalMinutes / sessions.length) : 0;
 
     return {
       daysPresent,

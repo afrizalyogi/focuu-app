@@ -4,8 +4,12 @@ import { usePresenceCount } from "@/hooks/usePresenceCount";
 import { ArrowRight, Sparkles } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import GlassOrbs from "@/components/landing/GlassOrbs";
-import ResearchStats, { ExponentialGrowthSection } from "@/components/landing/ResearchStats";
-import PresenceDisplay, { NavbarPresence } from "@/components/landing/PresenceDisplay";
+import ResearchStats, {
+  ExponentialGrowthSection,
+} from "@/components/landing/ResearchStats";
+import PresenceDisplay, {
+  NavbarPresence,
+} from "@/components/landing/PresenceDisplay";
 import FeaturePreviews from "@/components/landing/FeaturePreviews";
 
 const Landing = () => {
@@ -34,21 +38,33 @@ const Landing = () => {
               </div>
 
               {/* Main headline */}
-              <h1 className="animate-fade-up text-5xl md:text-7xl font-bold tracking-tight mb-6 text-foreground" style={{ animationDelay: "100ms" }}>
+              <h1
+                className="animate-fade-up text-5xl md:text-7xl font-bold tracking-tight mb-6 text-foreground"
+                style={{ animationDelay: "100ms" }}
+              >
                 Work, quietly.
               </h1>
 
               {/* Subheadline */}
-              <p className="animate-fade-up text-xl md:text-2xl text-muted-foreground mb-4 max-w-lg leading-relaxed" style={{ animationDelay: "200ms" }}>
+              <p
+                className="animate-fade-up text-xl md:text-2xl text-muted-foreground mb-4 max-w-lg leading-relaxed"
+                style={{ animationDelay: "200ms" }}
+              >
                 A calm workspace that helps you stay present
               </p>
-              
-              <p className="animate-fade-up text-lg text-muted-foreground/60 mb-10" style={{ animationDelay: "250ms" }}>
+
+              <p
+                className="animate-fade-up text-lg text-muted-foreground/60 mb-10"
+                style={{ animationDelay: "250ms" }}
+              >
                 No pressure. No distraction. Just you and your work.
               </p>
 
               {/* CTA Group */}
-              <div className="animate-fade-up flex flex-col sm:flex-row items-center gap-4" style={{ animationDelay: "300ms" }}>
+              <div
+                className="animate-fade-up flex flex-col sm:flex-row items-center gap-4"
+                style={{ animationDelay: "300ms" }}
+              >
                 <Button
                   onClick={() => navigate("/onboarding")}
                   size="lg"
@@ -57,7 +73,7 @@ const Landing = () => {
                   Enter work mode
                   <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Button>
-                
+
                 <p className="text-sm text-muted-foreground/50">
                   No sign up required
                 </p>

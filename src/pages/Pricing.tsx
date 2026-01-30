@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,21 +10,69 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, ArrowLeft, Sparkles, Zap, Crown, Palette, BarChart3, Music, Image } from "lucide-react";
+import {
+  Check,
+  ArrowLeft,
+  Sparkles,
+  Zap,
+  Crown,
+  Palette,
+  BarChart3,
+} from "lucide-react";
 
 type PlanType = "monthly" | "yearly" | "lifetime";
+
+type PricingPlan = {
+  id: string;
+  name: string;
+  description: string;
+  price_cents: number;
+  interval: PlanType;
+  features: string[];
+  payment_link?: string;
+};
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { user, profile, upgradeToPro } = useAuth();
   const [showCheckout, setShowCheckout] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<PlanType>("yearly");
+  const [dbPlans, setDbPlans] = useState<PricingPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
 
-  const plans = {
-    monthly: { price: 4, period: "/month", savings: null, label: "Monthly", description: "Billed monthly" },
-    yearly: { price: 36, period: "/year", savings: "Save 25%", label: "Yearly", description: "$3/month billed annually" },
-    lifetime: { price: 79, period: "once", savings: "Best value", label: "Lifetime", description: "Pay once, own forever" },
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("pricing_plans")
+      .select("*")
+      .eq("is_active", true)
+      .order("price_cents", { ascending: true });
+
+    if (data) {
+      // Correct type casting mapping
+      const mappedPlans = data.map((p: any) => ({
+        ...p,
+        interval: p.interval as PlanType,
+      }));
+      setDbPlans(mappedPlans);
+      // Select 'yearly' by default if exists, else first one
+      const yearly = mappedPlans.find((p: any) => p.interval === "yearly");
+      if (yearly) setSelectedPlanId(yearly.id);
+      else if (mappedPlans.length > 0) setSelectedPlanId(mappedPlans[0].id);
+    }
+    setLoading(false);
+  };
+
+  const getPlanDetails = (plan: PricingPlan) => {
+    if (plan.interval === "monthly") return { period: "/month", savings: null };
+    if (plan.interval === "yearly")
+      return { period: "/year", savings: "Best Value" };
+    return { period: "once", savings: "Lifetime Access" };
   };
 
   const handleCheckout = () => {
@@ -31,12 +80,17 @@ const Pricing = () => {
       navigate("/auth");
       return;
     }
+    const selected = dbPlans.find((p) => p.id === selectedPlanId);
+    if (selected?.payment_link) {
+      window.open(selected.payment_link, "_blank");
+      return;
+    }
     setShowCheckout(true);
   };
 
   const handleDummyCheckout = async () => {
     setIsProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     await upgradeToPro();
     setIsProcessing(false);
     setShowCheckout(false);
@@ -44,6 +98,7 @@ const Pricing = () => {
   };
 
   const isPro = profile?.is_pro ?? false;
+  const selectedPlan = dbPlans.find((p) => p.id === selectedPlanId);
 
   // Highlighted features - personalization & analytics first
   const highlightedFeatures = [
@@ -109,21 +164,25 @@ const Pricing = () => {
               {/* Highlighted features - Personalization & Analytics */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                 {highlightedFeatures.map((feature, idx) => (
-                  <div 
-                    key={idx} 
+                  <div
+                    key={idx}
                     className="rounded-2xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm"
                   >
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                         <feature.icon className="w-5 h-5 text-primary" />
                       </div>
-                      <h3 className="font-semibold text-foreground">{feature.title}</h3>
+                      <h3 className="font-semibold text-foreground">
+                        {feature.title}
+                      </h3>
                     </div>
                     <ul className="space-y-2.5">
                       {feature.items.map((item, i) => (
                         <li key={i} className="flex items-start gap-2.5">
                           <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                          <span className="text-sm text-muted-foreground">{item}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {item}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -138,7 +197,7 @@ const Pricing = () => {
                 </p>
                 <div className="flex flex-wrap justify-center gap-3">
                   {otherFeatures.map((feature, i) => (
-                    <span 
+                    <span
                       key={i}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/50 text-sm text-muted-foreground"
                     >
@@ -150,64 +209,89 @@ const Pricing = () => {
               </div>
 
               {/* Plan selector */}
-              <div className="rounded-2xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm mb-6">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4 text-center">
-                  Choose your plan
-                </p>
-                <div className="grid grid-cols-3 gap-3 mb-6">
-                  {(["monthly", "yearly", "lifetime"] as PlanType[]).map((plan) => {
-                    const planData = plans[plan];
-                    const isSelected = selectedPlan === plan;
-                    const isPopular = plan === "yearly";
-                    const isBest = plan === "lifetime";
-                    
-                    return (
-                      <button
-                        key={plan}
-                        onClick={() => setSelectedPlan(plan)}
-                        className={`relative p-4 rounded-xl border-2 transition-all ${
-                          isSelected 
-                            ? "border-primary bg-primary/5 scale-[1.02]" 
-                            : "border-transparent bg-secondary/30 hover:bg-secondary/50"
-                        }`}
-                      >
-                        {planData.savings && (
-                          <span className={`absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
-                            isBest ? "bg-yellow-500/20 text-yellow-500" : "bg-primary/20 text-primary"
-                          }`}>
-                            {planData.savings}
-                          </span>
-                        )}
-                        
-                        <div className="flex items-center justify-center gap-1.5 mb-1">
-                          {isPopular && <Zap className="w-3.5 h-3.5 text-primary" />}
-                          {isBest && <Crown className="w-3.5 h-3.5 text-yellow-500" />}
-                          <span className="font-medium text-foreground text-sm">{planData.label}</span>
-                        </div>
-                        
-                        <div className="text-center">
-                          <span className="text-2xl font-bold text-foreground">${planData.price}</span>
-                          <span className="text-muted-foreground text-xs ml-0.5">{planData.period}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+              {loading ? (
+                <div className="text-center py-10 text-muted-foreground">
+                  Loading plans...
                 </div>
-
-                {/* Selected plan details */}
-                <div className="text-center border-t border-border/50 pt-4">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {plans[selectedPlan].description}
+              ) : (
+                <div className="rounded-2xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm mb-6">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4 text-center">
+                    Choose your plan
                   </p>
-                  <Button 
-                    onClick={handleCheckout}
-                    size="lg"
-                    className="px-8"
-                  >
-                    Continue with {plans[selectedPlan].label}
-                  </Button>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+                    {dbPlans.map((plan) => {
+                      const { period, savings } = getPlanDetails(plan);
+                      const isSelected = selectedPlanId === plan.id;
+                      const isPopular = plan.interval === "yearly";
+                      const isBest = plan.interval === "lifetime";
+
+                      return (
+                        <button
+                          key={plan.id}
+                          onClick={() => setSelectedPlanId(plan.id)}
+                          className={`relative p-4 rounded-xl border-2 transition-all ${
+                            isSelected
+                              ? plan.interval === "lifetime"
+                                ? "border-yellow-400 bg-primary/5 scale-[1.02] z-10 shadow-lg shadow-yellow-400/10"
+                                : "border-primary bg-primary/5 scale-[1.02] z-10"
+                              : "border-transparent bg-secondary/30 hover:bg-secondary/50"
+                          }`}
+                        >
+                          {savings && (
+                            <span
+                              className={`absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap shadow-sm ${
+                                isBest
+                                  ? "bg-yellow-500 text-yellow-950"
+                                  : "bg-primary text-primary-foreground"
+                              }`}
+                            >
+                              {savings}
+                            </span>
+                          )}
+
+                          <div className="flex items-center justify-center gap-1.5 mb-1">
+                            {isPopular && (
+                              <Zap className="w-3.5 h-3.5 text-primary" />
+                            )}
+                            {isBest && (
+                              <Crown className="w-3.5 h-3.5 text-yellow-500" />
+                            )}
+                            <span className="font-medium text-foreground text-sm uppercase">
+                              {plan.name}
+                            </span>
+                          </div>
+
+                          <div className="text-center">
+                            <span className="text-2xl font-bold text-foreground">
+                              ${plan.price_cents / 100}
+                            </span>
+                            <span className="text-muted-foreground text-xs ml-0.5">
+                              {period}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Selected plan details */}
+                  {selectedPlan && (
+                    <div className="text-center border-t border-border/50 pt-4">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {selectedPlan.description}
+                      </p>
+                      <Button
+                        onClick={handleCheckout}
+                        size="lg"
+                        className="px-8"
+                        disabled={showCheckout}
+                      >
+                        Continue with {selectedPlan.name}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
 
               {/* No pressure note */}
               <p className="text-xs text-muted-foreground/50 text-center">
@@ -244,60 +328,72 @@ const Pricing = () => {
           <DialogHeader>
             <DialogTitle>Upgrade to Pro</DialogTitle>
             <DialogDescription>
-              {selectedPlan === "monthly" && "$4/month — cancel anytime"}
-              {selectedPlan === "yearly" && "$36/year — save 25%"}
-              {selectedPlan === "lifetime" && "$79 once — yours forever"}
+              {selectedPlan && (
+                <>
+                  {selectedPlan.name} — ${selectedPlan.price_cents / 100}{" "}
+                  {getPlanDetails(selectedPlan).period}
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="rounded-xl bg-secondary/50 p-4 space-y-2">
               <p className="text-sm font-medium">What you'll get:</p>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li className="flex items-center gap-2">
-                  <Palette className="w-3.5 h-3.5 text-primary" />
-                  Custom backgrounds, themes & music
-                </li>
-                <li className="flex items-center gap-2">
-                  <BarChart3 className="w-3.5 h-3.5 text-primary" />
-                  Analytics, streaks & presence history
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-3.5 h-3.5 text-primary" />
-                  Unlimited tasks with focus highlights
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-3.5 h-3.5 text-primary" />
-                  Session notes & time boundaries
-                </li>
+                {selectedPlan?.features &&
+                typeof selectedPlan.features === "object" ? (
+                  // @ts-ignore
+                  selectedPlan.features.map((feat: string, i: number) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-primary" />
+                      {feat}
+                    </li>
+                  ))
+                ) : (
+                  <>
+                    <li className="flex items-center gap-2">
+                      <Palette className="w-3.5 h-3.5 text-primary" />
+                      Custom backgrounds, themes & music
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <BarChart3 className="w-3.5 h-3.5 text-primary" />
+                      Analytics, streaks & presence history
+                    </li>
+                  </>
+                )}
               </ul>
             </div>
 
             <div className="rounded-xl border border-border p-4 space-y-3">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Order summary</p>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>focuu Pro ({plans[selectedPlan].label})</span>
-                  <span>${plans[selectedPlan].price}</span>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Order summary
+              </p>
+              {selectedPlan && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>focuu Pro ({selectedPlan.name})</span>
+                    <span>${selectedPlan.price_cents / 100}</span>
+                  </div>
+                  <div className="border-t border-border pt-2 flex justify-between text-sm font-medium">
+                    <span>Total</span>
+                    <span>
+                      ${selectedPlan.price_cents / 100}
+                      {getPlanDetails(selectedPlan).period}
+                    </span>
+                  </div>
                 </div>
-                <div className="border-t border-border pt-2 flex justify-between text-sm font-medium">
-                  <span>Total</span>
-                  <span>
-                    ${plans[selectedPlan].price}
-                    {selectedPlan !== "lifetime" && plans[selectedPlan].period}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
-            <Button 
-              onClick={handleDummyCheckout} 
+            <Button
+              onClick={handleDummyCheckout}
               className="w-full"
               disabled={isProcessing}
             >
               {isProcessing ? "Processing..." : "Complete Purchase"}
             </Button>
-            
+
             <p className="text-xs text-center text-muted-foreground">
               This is a demo. No real payment will be processed.
             </p>

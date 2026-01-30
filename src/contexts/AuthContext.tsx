@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, Profile } from "@/integrations/supabase/client";
 
@@ -7,9 +13,14 @@ interface AuthContextType {
   profile: Profile | null;
   session: Session | null;
   isLoading: boolean;
+  isAdmin: boolean;
+  hasProAccess: boolean;
   signIn: (email: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signInWithPassword: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithPassword: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   upgradeToPro: () => Promise<void>;
@@ -22,36 +33,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
+    // Fetch Profile
+    const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .maybeSingle();
 
-    if (!error && data) {
-      setProfile(data as Profile);
+    if (!profileError && profileData) {
+      setProfile(profileData as Profile);
+    }
+
+    // Fetch Role
+    const { data: roleData, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (!roleError && roleData) {
+      setIsAdmin(true);
+    } else {
+      setIsAdmin(false);
     }
   };
 
   useEffect(() => {
     // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer profile fetch to avoid deadlock
-        if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      // Defer profile fetch to avoid deadlock
+      if (session?.user) {
+        setTimeout(() => {
+          fetchProfile(session.user.id);
+        }, 0);
+      } else {
+        setProfile(null);
+        setIsAdmin(false);
       }
-    );
+      setIsLoading(false);
+    });
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -63,33 +92,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string): Promise<{ error: Error | null }> => {
-    const redirectUrl = `${window.location.origin}/`;
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: redirectUrl,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     return { error };
   };
 
-  const signUp = async (email: string, password: string): Promise<{ error: Error | null }> => {
-    const redirectUrl = `${window.location.origin}/`;
+  const signUp = async (
+    email: string,
+    password: string,
+  ): Promise<{ error: Error | null }> => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     return { error };
   };
 
-  const signInWithPassword = async (email: string, password: string): Promise<{ error: Error | null }> => {
+  const signInWithPassword = async (
+    email: string,
+    password: string,
+  ): Promise<{ error: Error | null }> => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -99,9 +134,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/app`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     return { error: error as Error | null };
@@ -112,34 +147,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setProfile(null);
     setSession(null);
+    setIsAdmin(false);
   };
 
   const upgradeToPro = async () => {
-    if (user) {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ is_pro: true })
-        .eq("id", user.id);
+    if (!user) return;
+    // Mock upgrade for now
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        is_pro: true,
+        subscription_status: "pro",
+      })
+      .eq("id", user.id);
 
-      if (!error) {
-        setProfile((prev) => prev ? { ...prev, is_pro: true } : null);
-      }
+    if (!error) {
+      await fetchProfile(user.id);
     }
   };
 
+  // Helper to check pro access (Pro OR Trial)
+  const hasProAccess = !!(
+    profile?.is_pro ||
+    (profile?.subscription_status === "trial" &&
+      new Date(profile.trial_ends_at || "") > new Date())
+  );
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      profile, 
-      session, 
-      isLoading, 
-      signIn, 
-      signUp,
-      signInWithPassword,
-      signInWithGoogle,
-      signOut, 
-      upgradeToPro 
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        session,
+        isLoading,
+        isAdmin,
+        hasProAccess,
+        signIn,
+        signUp,
+        signInWithPassword,
+        signInWithGoogle,
+        signOut,
+        upgradeToPro,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

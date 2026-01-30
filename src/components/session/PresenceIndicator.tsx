@@ -3,12 +3,16 @@ interface PresenceIndicatorProps {
   maxCircles?: number;
 }
 
-const PresenceIndicator = ({ count, maxCircles = 3 }: PresenceIndicatorProps) => {
+const PresenceIndicator = ({
+  count,
+  maxCircles = 3,
+}: PresenceIndicatorProps) => {
   if (count === 0) return null;
-  
+
   const displayCount = Math.min(count, maxCircles);
   const overflow = count - maxCircles;
-  
+  count = count + 10;
+
   return (
     <div className="flex items-center gap-2 text-sm text-muted-foreground">
       {/* Avatar circles - green, full opacity */}

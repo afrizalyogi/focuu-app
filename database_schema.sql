@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS public.user_analytics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL,
-  event_data JSONB DEFAULT '{}',
+  event_data JSONB DEFAULT '{}', -- Payload: { interaction_type: 'hit'|'miss', component_text, distance, etc }
   session_id TEXT,
   page TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -298,6 +298,45 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- 3f. Helper function to set user role by email (Run via SQL Editor)
+CREATE OR REPLACE FUNCTION public.set_user_role(p_email TEXT, p_role TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_role app_role;
+BEGIN
+  -- Validate role
+  BEGIN
+    v_role := p_role::app_role;
+  EXCEPTION WHEN OTHERS THEN
+    RETURN 'Error: Invalid role. Use admin, moderator, or user.';
+  END;
+
+  -- Find user ID from profiles (safer than querying auth.users directly if permissions are tight)
+  SELECT id INTO v_user_id
+  FROM public.profiles
+  WHERE email = p_email;
+
+  IF v_user_id IS NULL THEN
+    RETURN 'Error: User not found with email ' || p_email;
+  END IF;
+
+  -- Upsert role
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (v_user_id, v_role)
+  ON CONFLICT (user_id, role) DO NOTHING;
+
+  -- If assigning admin, also give them access to pro/everything via subscription override? 
+  -- Optional, but for now just role.
+
+  RETURN 'Success: Set ' || p_email || ' to role ' || p_role;
+END;
+$$;
+
 -- ============================================
 -- STEP 4: RLS POLICIES
 -- ============================================
@@ -311,6 +350,10 @@ DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+CREATE POLICY "Admins can view all profiles" ON public.profiles
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
+
 -- User roles policies
 DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
 CREATE POLICY "Users can view own roles" ON public.user_roles
@@ -319,6 +362,31 @@ CREATE POLICY "Users can view own roles" ON public.user_roles
 DROP POLICY IF EXISTS "Only admins can manage roles" ON public.user_roles;
 CREATE POLICY "Only admins can manage roles" ON public.user_roles
   FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+
+-- Create user_feedback table
+create table if not exists public.user_feedback (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  rating integer not null check (rating >= 1 and rating <= 5),
+  feedback text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS
+alter table public.user_feedback enable row level security;
+
+-- Policies
+DROP POLICY IF EXISTS "Users can insert their own feedback" ON public.user_feedback;
+CREATE POLICY "Users can insert their own feedback" ON public.user_feedback
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can view their own feedback" ON public.user_feedback;
+CREATE POLICY "Users can view their own feedback" ON public.user_feedback
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can view all feedback" ON public.user_feedback;
+CREATE POLICY "Admins can view all feedback" ON public.user_feedback
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
 -- Sessions policies
 DROP POLICY IF EXISTS "Users can manage own sessions" ON public.sessions;
@@ -342,25 +410,55 @@ DROP POLICY IF EXISTS "Admins can view all analytics" ON public.user_analytics;
 CREATE POLICY "Admins can view all analytics" ON public.user_analytics
   FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
+-- Allow authenticated users to view heatmap data (fixes admin visibility issues)
+DROP POLICY IF EXISTS "Authenticated users can view heatmap data" ON public.user_analytics;
+CREATE POLICY "Authenticated users can view heatmap data" ON public.user_analytics
+  FOR SELECT
+  TO authenticated
+  USING (event_type = 'heatmap_click');
+
+-- Allow authenticated users to view heatmap data (fixes admin visibility issues)
+DROP POLICY IF EXISTS "Authenticated users can view heatmap data" ON public.user_analytics;
+CREATE POLICY "Authenticated users can view heatmap data" ON public.user_analytics
+  FOR SELECT
+  TO authenticated
+  USING (event_type = 'heatmap_click');
+
 -- Onboarding preferences policies
 DROP POLICY IF EXISTS "Users can manage own onboarding" ON public.onboarding_preferences;
 CREATE POLICY "Users can manage own onboarding" ON public.onboarding_preferences
   FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can view all onboarding" ON public.onboarding_preferences;
+CREATE POLICY "Admins can view all onboarding" ON public.onboarding_preferences
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
 -- User preferences policies
 DROP POLICY IF EXISTS "Users can manage own preferences" ON public.user_preferences;
 CREATE POLICY "Users can manage own preferences" ON public.user_preferences
   FOR ALL USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Admins can view all preferences" ON public.user_preferences;
+CREATE POLICY "Admins can view all preferences" ON public.user_preferences
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
+
 -- User streaks policies
 DROP POLICY IF EXISTS "Users can manage own streaks" ON public.user_streaks;
 CREATE POLICY "Users can manage own streaks" ON public.user_streaks
   FOR ALL USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Admins can view all streaks" ON public.user_streaks;
+CREATE POLICY "Admins can view all streaks" ON public.user_streaks
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
+
 -- User settings policies
 DROP POLICY IF EXISTS "Users can manage own settings" ON public.user_settings;
 CREATE POLICY "Users can manage own settings" ON public.user_settings
   FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can view all settings" ON public.user_settings;
+CREATE POLICY "Admins can view all settings" ON public.user_settings
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
 -- ============================================
 -- STEP 5: INDEXES FOR PERFORMANCE
@@ -369,6 +467,8 @@ CREATE POLICY "Users can manage own settings" ON public.user_settings
 CREATE INDEX IF NOT EXISTS idx_user_analytics_user_id ON public.user_analytics(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_analytics_event_type ON public.user_analytics(event_type);
 CREATE INDEX IF NOT EXISTS idx_user_analytics_created_at ON public.user_analytics(created_at);
+CREATE INDEX IF NOT EXISTS idx_user_analytics_page ON public.user_analytics(page);
+CREATE INDEX IF NOT EXISTS idx_user_analytics_type_page ON public.user_analytics(event_type, page);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON public.sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_completed_at ON public.sessions(completed_at);
 CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);
@@ -377,12 +477,17 @@ CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);
 -- STEP 6: ADMIN SETUP
 -- ============================================
 
--- TO SET ADMIN ROLE FOR A USER, RUN:
+-- TO SET ADMIN ROLE FOR A USER (Using Email):
+-- SELECT public.set_user_role('admin@example.com', 'admin');
+
+-- TO SET ADMIN ROLE FOR A USER (Using UUID):
 -- INSERT INTO public.user_roles (user_id, role)
 -- VALUES ('YOUR_USER_UUID_HERE', 'admin');
 
 -- TO CHECK IF A USER IS ADMIN:
 -- SELECT public.has_role('YOUR_USER_UUID_HERE', 'admin');
+-- OR Check via Email:
+-- SELECT * FROM public.user_roles WHERE user_id IN (SELECT id FROM public.profiles WHERE email = 'admin@example.com');
 
 -- ============================================
 -- STEP 7: SUBSCRIPTION MANAGEMENT TABLES
@@ -425,7 +530,7 @@ ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 -- 7c. Subscriptions table - tracks active subscription periods
 CREATE TABLE IF NOT EXISTS public.subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   plan_type TEXT NOT NULL CHECK (plan_type IN ('monthly', 'yearly', 'lifetime')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'cancelled')),
   starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -587,5 +692,147 @@ END;
 $$;
 
 -- ============================================
+-- STEP 8: MIGRATION FIXES (Run if table already exists)
+-- ============================================
+
+-- Fix subscriptions foreign key to point to profiles instead of auth.users
+-- This is required for PostgREST resource embedding (e.g. profiles!inner)
+DO $$
+BEGIN
+  -- Check if the constraint exists (simplification: attempt to drop and recreate)
+  BEGIN
+    ALTER TABLE public.subscriptions DROP CONSTRAINT IF EXISTS subscriptions_user_id_fkey;
+  END;
+
+  -- Add the correct constraint
+  BEGIN
+    ALTER TABLE public.subscriptions
+    ADD CONSTRAINT subscriptions_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+    ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN null;
+    WHEN others THEN raise notice 'Could not create constraint: %', SQLERRM;
+  END;
+END $$;
+
+-- ============================================
+-- ============================================
+-- STEP 9: GRANT PERMISSIONS (CRITICAL)
+-- ============================================
+
+-- Grant usage on public schema
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+-- Grant access to all tables for authorized roles
+-- (RLS policies will still restrict data access row-by-row)
+
+-- 1. User Roles
+GRANT SELECT ON TABLE public.user_roles TO authenticated;
+GRANT SELECT ON TABLE public.user_roles TO service_role;
+
+-- 2. Profiles
+GRANT SELECT, INSERT, UPDATE ON TABLE public.profiles TO authenticated;
+GRANT ALL ON TABLE public.profiles TO service_role;
+
+-- 3. Sessions
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.sessions TO authenticated;
+GRANT ALL ON TABLE public.sessions TO service_role;
+
+-- 4. User Analytics
+GRANT SELECT, INSERT ON TABLE public.user_analytics TO authenticated;
+GRANT INSERT ON TABLE public.user_analytics TO anon;
+GRANT ALL ON TABLE public.user_analytics TO service_role;
+
+-- 5. Preferences & Settings
+GRANT SELECT, INSERT, UPDATE ON TABLE public.onboarding_preferences TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.user_preferences TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.user_settings TO authenticated;
+GRANT ALL ON TABLE public.onboarding_preferences TO service_role;
+GRANT ALL ON TABLE public.user_preferences TO service_role;
+GRANT ALL ON TABLE public.user_settings TO service_role;
+
+-- 6. Streaks
+GRANT SELECT, INSERT, UPDATE ON TABLE public.user_streaks TO authenticated;
+GRANT ALL ON TABLE public.user_streaks TO service_role;
+
+-- 7. Feedback (if present)
+GRANT SELECT, INSERT ON TABLE public.user_feedback TO authenticated;
+GRANT ALL ON TABLE public.user_feedback TO service_role;
+
+-- 8. Subscription/Payment Tables
+GRANT SELECT, INSERT, UPDATE ON TABLE public.orders TO authenticated;
+GRANT SELECT ON TABLE public.payments TO authenticated;
+GRANT SELECT ON TABLE public.subscriptions TO authenticated;
+GRANT ALL ON TABLE public.orders TO service_role;
+GRANT ALL ON TABLE public.payments TO service_role;
+GRANT ALL ON TABLE public.subscriptions TO service_role;
+
+-- Grant access to sequences
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+
+-- Force refresh schema cache by notifying
+NOTIFY pgrst, 'reload schema';
+
+-- ============================================
 -- DONE! All tables and functions are ready.
 -- ============================================
+
+-- ============================================
+-- STEP 10: PRICING MANAGEMENT SCHEMA
+-- ============================================
+
+-- 10a. Create pricing_plans table
+CREATE TABLE IF NOT EXISTS public.pricing_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  price_cents INTEGER NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  interval TEXT NOT NULL CHECK (interval IN ('monthly', 'yearly', 'lifetime')),
+  is_active BOOLEAN DEFAULT true,
+  features JSONB DEFAULT '[]', -- List of feature strings
+  payment_link TEXT, -- Optional external link (Stripe/LemonSqueezy)
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 10b. Enable RLS
+ALTER TABLE public.pricing_plans ENABLE ROW LEVEL SECURITY;
+
+-- 10c. Policies
+-- Anyone can view active plans
+DROP POLICY IF EXISTS "Anyone can view active plans" ON public.pricing_plans;
+CREATE POLICY "Anyone can view active plans" ON public.pricing_plans
+  FOR SELECT USING (is_active = true OR public.has_role(auth.uid(), 'admin'));
+
+-- Only admins can manage plans
+DROP POLICY IF EXISTS "Admins can manage plans" ON public.pricing_plans;
+CREATE POLICY "Admins can manage plans" ON public.pricing_plans
+  FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+
+-- 10d. Indexes
+CREATE INDEX IF NOT EXISTS idx_pricing_plans_active ON public.pricing_plans(is_active);
+
+-- 10e. Seed Data
+INSERT INTO public.pricing_plans (name, description, price_cents, interval, features)
+SELECT 'Pro Monthly', 'Perfect for focused individuals', 900, 'monthly', '["Unlimited Focus Time", "Advanced Analytics", "Custom Themes"]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM public.pricing_plans WHERE name = 'Pro Monthly');
+
+INSERT INTO public.pricing_plans (name, description, price_cents, interval, features)
+SELECT 'Pro Yearly', 'Best value for long-term focus', 9000, 'yearly', '["All Pro Features", "2 Months Free", "Priority Support"]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM public.pricing_plans WHERE name = 'Pro Yearly');
+
+INSERT INTO public.pricing_plans (name, description, price_cents, interval, features)
+SELECT 'Lifetime', 'One-time payment forever', 29900, 'lifetime', '["All Future Updates", "Founder Badge", "Vibrational Energy"]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM public.pricing_plans WHERE name = 'Lifetime');
+
+-- 10f. Permissions
+GRANT SELECT ON TABLE public.pricing_plans TO anon, authenticated;
+GRANT ALL ON TABLE public.pricing_plans TO service_role;
+GRANT INSERT, UPDATE, DELETE ON TABLE public.pricing_plans TO authenticated;
+
+-- Force refresh schema cache by notifying
+NOTIFY pgrst, 'reload schema';
+

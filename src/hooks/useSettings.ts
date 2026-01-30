@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 export type ThemeMode = "dark" | "light" | "book";
 
@@ -36,7 +37,7 @@ export const useSettings = () => {
     const root = document.documentElement;
     root.classList.remove("dark", "light", "book");
     root.classList.add(theme);
-    
+
     // Update meta theme-color
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
@@ -53,7 +54,7 @@ export const useSettings = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       setIsLoading(true);
-      
+
       if (user) {
         // Try to fetch from database
         const { data, error } = await supabase
@@ -65,12 +66,16 @@ export const useSettings = () => {
         if (!error && data) {
           const dbSettings: UserSettings = {
             autoStart: data.auto_start ?? DEFAULT_SETTINGS.autoStart,
-            workHoursEnabled: data.work_hours_enabled ?? DEFAULT_SETTINGS.workHoursEnabled,
-            workHoursStart: data.work_hours_start ?? DEFAULT_SETTINGS.workHoursStart,
+            workHoursEnabled:
+              data.work_hours_enabled ?? DEFAULT_SETTINGS.workHoursEnabled,
+            workHoursStart:
+              data.work_hours_start ?? DEFAULT_SETTINGS.workHoursStart,
             workHoursEnd: data.work_hours_end ?? DEFAULT_SETTINGS.workHoursEnd,
             theme: (data.theme as ThemeMode) ?? DEFAULT_SETTINGS.theme,
             soundEnabled: data.sound_enabled ?? DEFAULT_SETTINGS.soundEnabled,
-            notificationsEnabled: data.notifications_enabled ?? DEFAULT_SETTINGS.notificationsEnabled,
+            notificationsEnabled:
+              data.notifications_enabled ??
+              DEFAULT_SETTINGS.notificationsEnabled,
           };
           setSettings(dbSettings);
           applyTheme(dbSettings.theme);
@@ -105,56 +110,79 @@ export const useSettings = () => {
           applyTheme(DEFAULT_SETTINGS.theme);
         }
       }
-      
+
       setIsLoading(false);
     };
 
     fetchSettings();
   }, [user, applyTheme]);
 
-  const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
-    const newSettings = { ...settings, ...updates };
-    setSettings(newSettings);
-    
-    // Apply theme immediately if changed
-    if (updates.theme) {
-      applyTheme(updates.theme);
-    }
-    
-    // Always save to localStorage as backup
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSettings));
+  const { track } = useAnalytics();
 
-    if (user) {
-      // Upsert to database
-      const { error } = await supabase
-        .from("user_settings")
-        .upsert({
-          user_id: user.id,
-          auto_start: newSettings.autoStart,
-          work_hours_enabled: newSettings.workHoursEnabled,
-          work_hours_start: newSettings.workHoursStart,
-          work_hours_end: newSettings.workHoursEnd,
-          theme: newSettings.theme,
-          sound_enabled: newSettings.soundEnabled,
-          notifications_enabled: newSettings.notificationsEnabled,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: "user_id",
+  const updateSettings = useCallback(
+    async (updates: Partial<UserSettings>) => {
+      const newSettings = { ...settings, ...updates };
+      setSettings(newSettings);
+
+      // Apply theme immediately if changed
+      if (updates.theme) {
+        applyTheme(updates.theme);
+        track({
+          eventType: "feature_usage",
+          eventData: { feature: "theme", value: updates.theme },
         });
-
-      if (error) {
-        console.error("Failed to save settings:", error);
       }
-    }
-  }, [settings, user, applyTheme]);
+
+      if (updates.notificationsEnabled !== undefined) {
+        track({
+          eventType: "feature_usage",
+          eventData: {
+            feature: "notifications",
+            value: updates.notificationsEnabled,
+          },
+        });
+      }
+
+      // Always save to localStorage as backup
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSettings));
+
+      if (user) {
+        // Upsert to database
+        const { error } = await supabase.from("user_settings").upsert(
+          {
+            user_id: user.id,
+            auto_start: newSettings.autoStart,
+            work_hours_enabled: newSettings.workHoursEnabled,
+            work_hours_start: newSettings.workHoursStart,
+            work_hours_end: newSettings.workHoursEnd,
+            theme: newSettings.theme,
+            sound_enabled: newSettings.soundEnabled,
+            notifications_enabled: newSettings.notificationsEnabled,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "user_id",
+          },
+        );
+
+        if (error) {
+          console.error("Failed to save settings:", error);
+        }
+      }
+    },
+    [settings, user, applyTheme, track],
+  );
 
   const isWithinWorkHours = useCallback((): boolean => {
     if (!settings.workHoursEnabled) return true;
 
     const now = new Date();
     const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
-    
-    return currentTime >= settings.workHoursStart && currentTime <= settings.workHoursEnd;
+
+    return (
+      currentTime >= settings.workHoursStart &&
+      currentTime <= settings.workHoursEnd
+    );
   }, [settings]);
 
   return {

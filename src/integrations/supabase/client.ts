@@ -1,26 +1,31 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://wocodvpvpwupaqhptdnf.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_yxuUhvmiqgZk_pUecQDDRA_kRwPod7I";
+const SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_yxuUhvmiqgZk_pUecQDDRA_kRwPod7I";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storage: typeof window !== "undefined" ? window.localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
   },
 });
 
 // Types for focuu database
-export type EnergyModeType = 'low' | 'normal' | 'focused';
+export type EnergyModeType = "low" | "normal" | "focused";
 
-export interface Profile {
+export type Profile = {
   id: string;
-  email: string;
-  is_pro: boolean;
+  email: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_pro: boolean | null;
+  subscription_status: string | null;
+  trial_ends_at: string | null;
   created_at: string;
   updated_at: string;
-}
+};
 
 export interface Session {
   id: string;

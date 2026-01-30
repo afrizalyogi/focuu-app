@@ -1,30 +1,62 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
-import { 
-  ArrowRight, 
-  Clock, 
-  Calendar, 
-  Zap, 
-  TrendingUp, 
-  Users, 
+import {
+  ArrowRight,
+  Clock,
+  Calendar,
+  Zap,
+  TrendingUp,
+  Users,
   Target,
   BarChart3,
   Lightbulb,
   History,
   Settings,
-  LogOut
+  LogOut,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import ActivityHeatmap from "@/components/dashboard/ActivityHeatmap";
+import ShareAchievement from "@/components/dashboard/ShareAchievement";
+import FocusChart from "@/components/dashboard/FocusChart";
+import Navbar from "@/components/layout/Navbar";
+import TopUsersTable from "@/components/dashboard/TopUsersTable";
 
 const AppDashboard = () => {
   const navigate = useNavigate();
-  const { user, profile, signOut } = useAuth();
-  const { sessions, isLoading, getTotalStats, getDaySummaries } = useSessionHistory();
+  const { user, profile, signOut, isAdmin } = useAuth();
+  const { sessions, isLoading, getTotalStats, getDaySummaries } =
+    useSessionHistory();
 
   const stats = getTotalStats();
+  // Using separate state for Heatmap timeframe (default 'year')
+  const [heatmapTimeframe, setHeatmapTimeframe] = useState<
+    "week" | "month" | "year"
+  >("year");
+  const [timeframe, setTimeframe] = useState<"week" | "month" | "year">("week");
+
+  const activeData = (() => {
+    switch (timeframe) {
+      case "week":
+        return getDaySummaries(7).reverse();
+      case "month":
+        return getDaySummaries(90).reverse(); // Increased to 90 days as requested (approx 3 months)
+      case "year":
+        return getDaySummaries(365)
+          .filter((_, i) => i % 30 === 0)
+          .reverse(); // Very rough approx for year view
+      default:
+        return getDaySummaries(7).reverse();
+    }
+  })();
+
+  const maxSessionCount = Math.max(
+    ...activeData.map((d) => d.sessionsCount),
+    1,
+  );
   const recentDays = getDaySummaries(7);
   const isPro = profile?.is_pro ?? false;
 
@@ -38,10 +70,11 @@ const AppDashboard = () => {
   };
 
   // Calculate insights
-  const avgMinutesPerDay = stats.daysPresent > 0 
-    ? Math.round(stats.totalMinutes / stats.daysPresent) 
-    : 0;
-  
+  const avgMinutesPerDay =
+    stats.daysPresent > 0
+      ? Math.round(stats.totalMinutes / stats.daysPresent)
+      : 0;
+
   const streakDays = (() => {
     let streak = 0;
     const today = new Date().toISOString().split("T")[0];
@@ -69,28 +102,11 @@ const AppDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      {/* Subtle background gradient */}
-      <div className="fixed inset-0 bg-gradient-to-b from-primary/3 via-transparent to-transparent pointer-events-none" />
-
+    <div className="min-h-screen bg-background p-4 md:p-8 space-y-8 animate-fade-in pb-24">
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between p-4 md:p-6 border-b border-border/30">
-        <button
-          onClick={() => navigate("/")}
-          className="text-lg font-semibold text-foreground/80 hover:text-foreground transition-calm"
-        >
-          focuu
-        </button>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleSignOut}
-            className="text-sm text-muted-foreground hover:text-foreground transition-calm flex items-center gap-1.5"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign out
-          </button>
-        </div>
-      </header>
+      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm -mx-4 md:-mx-8 px-4 md:px-8 border-b border-border/20">
+        <Navbar />
+      </div>
 
       {/* Main content */}
       <main className="relative z-10 flex-1 px-4 md:px-6 py-8">
@@ -142,7 +158,9 @@ const AppDashboard = () => {
                     <p className="text-2xl font-semibold text-foreground">
                       {stats.totalSessions}
                     </p>
-                    <p className="text-xs text-muted-foreground">total sessions</p>
+                    <p className="text-xs text-muted-foreground">
+                      total sessions
+                    </p>
                   </CardContent>
                 </Card>
                 <Card className="bg-card/50 border-border/30 hover:bg-card/70 transition-calm">
@@ -151,19 +169,22 @@ const AppDashboard = () => {
                     <p className="text-2xl font-semibold text-foreground">
                       {stats.daysPresent}
                     </p>
-                    <p className="text-xs text-muted-foreground">days present</p>
+                    <p className="text-xs text-muted-foreground">
+                      days present
+                    </p>
                   </CardContent>
                 </Card>
                 <Card className="bg-card/50 border-border/30 hover:bg-card/70 transition-calm">
                   <CardContent className="p-4">
                     <Clock className="w-4 h-4 text-primary mb-2" />
                     <p className="text-2xl font-semibold text-foreground">
-                      {stats.totalMinutes >= 60 
+                      {stats.totalMinutes >= 60
                         ? `${Math.floor(stats.totalMinutes / 60)}h ${stats.totalMinutes % 60}m`
-                        : `${stats.totalMinutes}m`
-                      }
+                        : `${stats.totalMinutes}m`}
                     </p>
-                    <p className="text-xs text-muted-foreground">time focused</p>
+                    <p className="text-xs text-muted-foreground">
+                      time focused
+                    </p>
                   </CardContent>
                 </Card>
                 <Card className="bg-card/50 border-border/30 hover:bg-card/70 transition-calm">
@@ -198,9 +219,11 @@ const AppDashboard = () => {
 
           {/* Feature Highlights */}
           <div>
-            <h2 className="text-lg font-medium text-foreground mb-4">What you can do</h2>
+            <h2 className="text-lg font-medium text-foreground mb-4">
+              Quick Access
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card 
+              <Card
                 className="bg-card/50 border-border/30 hover:bg-card/70 hover:border-primary/30 transition-calm cursor-pointer group"
                 onClick={() => navigate("/work")}
               >
@@ -209,100 +232,207 @@ const AppDashboard = () => {
                     <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-calm">
                       <Target className="w-4 h-4 text-primary" />
                     </div>
-                    <h3 className="font-medium text-foreground">Focus Sessions</h3>
+                    <h3 className="font-medium text-foreground">
+                      Focus Session
+                    </h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Start a timed work session with flexible or pomodoro mode. Track tasks and take notes while you work.
+                    Start a timed work session. Track tasks and stay in the
+                    flow.
                   </p>
                 </CardContent>
               </Card>
-              
-              <Card 
-                className="bg-card/50 border-border/30 hover:bg-card/70 hover:border-primary/30 transition-calm cursor-pointer group"
-                onClick={() => navigate("/work")}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-calm">
-                      <Users className="w-4 h-4 text-primary" />
-                    </div>
-                    <h3 className="font-medium text-foreground">Work Together</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    See others working right now. Join the community of focused workers and stay motivated together.
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card 
+
+              <Card
                 className="bg-card/50 border-border/30 hover:bg-card/70 hover:border-primary/30 transition-calm cursor-pointer group"
                 onClick={() => navigate("/app/history")}
               >
                 <CardContent className="p-5">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-calm">
-                      <BarChart3 className="w-4 h-4 text-primary" />
+                    <div className="p-2 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-calm">
+                      <History className="w-4 h-4 text-blue-500" />
                     </div>
-                    <h3 className="font-medium text-foreground">Track Progress</h3>
+                    <h3 className="font-medium text-foreground">History</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    View your history, export data, and analyze your focus patterns over time.
+                    Review your past sessions and track your consistency over
+                    time.
                   </p>
                 </CardContent>
               </Card>
+
+              <Card
+                className="bg-card/50 border-border/30 hover:bg-card/70 hover:border-primary/30 transition-calm cursor-pointer group"
+                onClick={() => navigate("/app/settings")}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-calm">
+                      <Settings className="w-4 h-4 text-orange-500" />
+                    </div>
+                    <h3 className="font-medium text-foreground">Settings</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Customize your experience, manage account, and preferences.
+                  </p>
+                </CardContent>
+              </Card>
+              {isAdmin && (
+                <Card
+                  className="bg-card/50 border-border/30 hover:bg-card/70 hover:border-yellow-500/30 transition-calm cursor-pointer group"
+                  onClick={() => navigate("/admin")}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 rounded-lg bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-calm">
+                        <Zap className="w-4 h-4 text-yellow-500" />
+                      </div>
+                      <h3 className="font-medium text-foreground">Admin</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Platform analytics, user metrics, and system health.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
 
           {/* Recent Activity Preview */}
           {stats.totalSessions > 0 && (
             <div>
-              <h2 className="text-lg font-medium text-foreground mb-4">Recent activity</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-medium text-foreground">
+                  Recent activity
+                </h2>
+                <div className="flex bg-secondary/50 rounded-lg p-1">
+                  {(["week", "month", "year"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTimeframe(t)}
+                      className={`
+                        px-3 py-1 text-xs font-medium rounded-md transition-all
+                        ${
+                          timeframe === t
+                            ? "bg-background shadow-sm text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }
+                      `}
+                    >
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <Card className="bg-card/50 border-border/30">
                 <CardContent className="p-4">
-                  <div className="flex gap-2">
-                    {recentDays.slice(0, 7).reverse().map((day, i) => (
-                      <div 
-                        key={day.date} 
-                        className="flex-1 flex flex-col items-center gap-2"
-                      >
-                        <div 
-                          className={`
-                            w-full aspect-square rounded-lg flex items-center justify-center text-xs font-medium
-                            ${day.sessionsCount > 0 
-                              ? "bg-primary/20 text-primary" 
-                              : "bg-secondary/50 text-muted-foreground/50"
-                            }
-                          `}
+                  <div className="flex gap-2 min-h-[100px] items-end">
+                    {activeData.map((day, i) => {
+                      const heightPercent =
+                        maxSessionCount > 0
+                          ? (day.sessionsCount / maxSessionCount) * 100
+                          : 0;
+
+                      return (
+                        <div
+                          key={day.date}
+                          className="flex-1 flex flex-col items-center gap-2 group relative"
                         >
-                          {day.sessionsCount > 0 ? day.sessionsCount : "·"}
+                          <div
+                            className={`
+                              w-full rounded-t-sm transition-all duration-500 ease-out
+                              ${
+                                day.sessionsCount > 0
+                                  ? "bg-primary/80 group-hover:bg-primary"
+                                  : "bg-secondary/30"
+                              }
+                            `}
+                            style={{
+                              height: `${Math.max(heightPercent, 4)}%`,
+                              minHeight: "4px",
+                            }}
+                          />
+                          <span className="text-[10px] text-muted-foreground truncate w-full text-center">
+                            {new Date(day.date)
+                              .toLocaleDateString("en-US", {
+                                weekday:
+                                  timeframe === "week" ? "short" : undefined,
+                                day:
+                                  timeframe !== "week" ? "numeric" : undefined,
+                                month:
+                                  timeframe === "year" ? "short" : undefined,
+                              })
+                              .slice(0, 3)}
+                          </span>
+
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-popover text-popover-foreground text-xs rounded px-2 py-1 shadow-lg whitespace-nowrap z-10 pointer-events-none">
+                            {new Date(day.date).toLocaleDateString()}
+                            <br />
+                            {day.sessionsCount} sessions
+                          </div>
                         </div>
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(day.date).toLocaleDateString("en-US", { weekday: "short" }).slice(0, 2)}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* Navigation Links */}
-          <div className="flex items-center gap-6 pt-4 border-t border-border/30">
-            <button
-              onClick={() => navigate("/app/history")}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
-            >
-              <History className="w-4 h-4" />
-              History
-            </button>
-            <button
-              onClick={() => navigate("/app/settings")}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
-            >
-              <Settings className="w-4 h-4" />
-              Settings
-            </button>
+          {/* Weekly Leaderboard */}
+          <div className="mb-8">
+            <TopUsersTable enableTabs={true} />
+          </div>
+
+          {/* Focus Volume Section */}
+          <div className="mb-8 mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium text-foreground">
+                Focus Volume
+              </h2>
+            </div>
+            <FocusChart />
+          </div>
+
+          {/* Focus History (Heatmap) Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium text-foreground">
+                Activity Heatmap
+              </h2>
+              <div className="flex bg-secondary/50 rounded-lg p-1">
+                {(["week", "month", "year"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setHeatmapTimeframe(t)}
+                    className={`
+                          px-3 py-1 text-xs font-medium rounded-md transition-all
+                          ${
+                            heatmapTimeframe === t
+                              ? "bg-background shadow-sm text-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          }
+                        `}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Card className="bg-card/50 border-border/30">
+              <CardContent className="p-4">
+                <ActivityHeatmap
+                  sessions={sessions}
+                  timeframe={heatmapTimeframe}
+                />
+              </CardContent>
+            </Card>
+          </div>
+          {/* Share Achievement Section */}
+          <div className="mb-8">
+            <ShareAchievement />
           </div>
         </div>
       </main>
