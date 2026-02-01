@@ -52,7 +52,7 @@ const FocusChart = () => {
   // Determine color based on trend (green for now as focus is good)
   const chartColor = "#10b981"; // Emerald-500
 
-  const generateImage = () => {
+  const generateImage = async () => {
     if (!chartRef.current) return null;
 
     // Find SVG
@@ -71,38 +71,119 @@ const FocusChart = () => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        // Set canvas size (add padding for title)
-        const width = svg.clientWidth || 600;
-        const height = svg.clientHeight || 300;
-        const headerHeight = 100;
+        // Layout Config
+        const width = 600;
+        const height = 400;
+        const chartHeight = 220;
+        const headerHeight = 120; // Space for Title & PnL
 
         canvas.width = width;
-        canvas.height = height + headerHeight;
+        canvas.height = height;
 
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        // Draw Background
-        ctx.fillStyle = "#09090b"; // Dark bg
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // 1. Draw Background (Modern Dark Gradient)
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, "#09090b"); // zinc-950
+        gradient.addColorStop(1, "#1c1917"); // zinc-900 warm
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
 
-        // Draw Header Text
-        ctx.font = "bold 24px Inter, sans-serif";
+        // 2. Draw Silhouette Watermark (FOCUU)
+        ctx.save();
+        ctx.globalAlpha = 0.03;
+        ctx.font = "bold 150px Inter, sans-serif";
         ctx.fillStyle = "#ffffff";
-        ctx.fillText("Focuu Growth Chart", 20, 40);
+        ctx.textAlign = "center";
+        ctx.translate(width / 2, height / 2);
+        ctx.rotate(-0.1);
+        ctx.fillText("FOCUU", 0, 50);
+        ctx.restore();
 
-        ctx.font = "16px Inter, sans-serif";
+        // 3. Draw Header Content
+
+        // Status Pill
+        const statusText = hasProAccess ? "FOCUS ELITE" : "FOCUS INITIATE";
+        ctx.font = "bold 12px Inter, sans-serif";
+        const pillPaddingX = 16;
+        const pillPaddingY = 6;
+        const textMetrics = ctx.measureText(statusText);
+        const pillWidth = textMetrics.width + pillPaddingX * 2;
+        const pillHeight = 26;
+        const pillX = (width - pillWidth) / 2;
+        const pillY = 30;
+
+        ctx.beginPath();
+
+        if (ctx.roundRect) {
+          ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 50);
+        } else {
+          ctx.rect(pillX, pillY, pillWidth, pillHeight);
+        }
+        ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(statusText, width / 2, pillY + pillHeight / 2);
+
+        // Title: "Growth Chart"
+        ctx.textBaseline = "alphabetic";
+        ctx.font = "bold 32px Inter, sans-serif";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText("Growth Chart", width / 2, 90);
+
+        // PnL Style Metric Calculation
+        // PnL Style Metric Calculation
+        // Compare Period Start vs Period Average
+        const startMinutes = data.length > 0 ? data[0].minutes : 0;
+        const avgPrecise = totalMinutes / (data.length || 1);
+
+        let growthValue = 0;
+
+        if (startMinutes === 0) {
+          // If we started from 0 and have any activity, that's 100% growth from zero state
+          growthValue = avgPrecise > 0 ? 100 : 0;
+        } else {
+          growthValue = ((avgPrecise - startMinutes) / startMinutes) * 100;
+        }
+
+        const growthFormatted =
+          growthValue > 0
+            ? `+${Math.round(growthValue)}%`
+            : `${Math.round(growthValue)}%`;
+
+        const isPositive = growthValue >= 0;
+
+        ctx.font = "bold 48px Inter, sans-serif";
+        ctx.fillStyle = isPositive ? "#22c55e" : "#ef4444"; // Green or Red
+        ctx.fillText(growthFormatted, width / 2, 145);
+
+        ctx.font = "14px Inter, sans-serif";
         ctx.fillStyle = "#a1a1aa";
-        ctx.fillText(`Avg Daily Focus: ${avgMinutes}m`, 20, 70);
+        ctx.fillText("Productivity Gain", width / 2, 165);
 
-        // Draw Chart
-        ctx.drawImage(img, 0, headerHeight);
+        // 4. Draw Chart
+        // Center the chart image at the bottom
+        // We need to scale the chart image to fit nicely
+        const imgRatio = img.width / img.height;
+        const drawHeight = chartHeight;
+        const drawWidth = drawHeight * imgRatio;
+        const drawX = (width - drawWidth) / 2;
+        const drawY = headerHeight + 60; // Offset from header
 
-        // Draw Watermark
+        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+
+        // 5. Footer
         ctx.font = "12px Inter, sans-serif";
         ctx.fillStyle = "#52525b";
-        ctx.textAlign = "right";
-        ctx.fillText("focuu.site/app", canvas.width - 20, 40);
+        ctx.textAlign = "center";
+        ctx.fillText("focuu.site/app", width / 2, height - 35); // Raised higher
 
         resolve(canvas.toDataURL("image/png"));
       };
@@ -171,10 +252,13 @@ const FocusChart = () => {
   };
 
   return (
-    <Card className="col-span-1 lg:col-span-2 overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0 pb-2 border-b border-border/10">
-        <div className="space-y-1 text-center sm:text-left">
-          <div className="flex items-baseline gap-2">
+    <Card className="col-span-1 lg:col-span-2 overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm h-full flex flex-col">
+      <CardHeader className="flex flex-col md:flex-row items-start justify-between space-y-2 md:space-y-0 pb-4 border-b border-border/10">
+        <div className="space-y-1 w-full flex flex-col items-center md:items-start">
+          <CardTitle className="flex items-center justify-center md:justify-start gap-2">
+            <span className="text-lg font-medium">Focus Volume</span>
+          </CardTitle>
+          <div className="flex items-baseline justify-center md:justify-start gap-2">
             <span className="text-3xl font-bold text-foreground">
               {range === "Week" && avgMinutes}
               {range === "Month" && avgMinutes}
@@ -190,7 +274,7 @@ const FocusChart = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row w-full items-center gap-4">
           {/* Share Controls */}
           <div className="flex items-center gap-2">
             <Button
@@ -206,9 +290,7 @@ const FocusChart = () => {
               title={!hasProAccess ? "Upgrade to Download" : "Download Chart"}
             >
               <Download className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:text-xs">
-                Download
-              </span>
+              <span className="not-sr-only text-xs">Download</span>
             </Button>
             <Button
               variant="outline"
@@ -223,7 +305,7 @@ const FocusChart = () => {
               title={!hasProAccess ? "Upgrade to Share" : "Share Chart"}
             >
               <Share2 className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:text-xs">Share</span>
+              <span className="not-sr-only text-xs">Share</span>
             </Button>
           </div>
 
@@ -246,7 +328,7 @@ const FocusChart = () => {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-4 h-[350px] w-full" ref={chartRef}>
+      <CardContent className="pt-4 flex-1 w-full" ref={chartRef}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={data}
@@ -299,6 +381,7 @@ const FocusChart = () => {
                 marginBottom: "4px",
                 fontSize: "12px",
               }}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formatter={(value: any) => [`${value} mins`, "Focus Time"]}
               cursor={{
                 stroke: chartColor,

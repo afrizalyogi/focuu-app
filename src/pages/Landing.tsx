@@ -26,20 +26,23 @@ const Landing = () => {
 
       {/* HERO SECTION */}
       <main className="relative z-10 flex-1 flex flex-col">
-        <section className="flex-1 flex flex-col items-center justify-center pb-10 min-h-[70vh]">
+        <section className="flex-1 flex flex-col items-center justify-center py-10 lg:min-h-[70vh]">
           <div className="w-full max-w-6xl mx-auto px-6">
             <div className="flex flex-col items-center text-center max-w-2xl mx-auto">
               {/* Badge */}
               <div className="animate-fade-up mb-8">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 backdrop-blur-sm border border-primary/20 text-primary text-sm">
                   <Sparkles className="w-4 h-4" />
-                  <span>For people who actually want to work</span>
+                  <span className="md:hidden">For consistent work</span>
+                  <span className="hidden md:inline">
+                    For people who actually want to work
+                  </span>
                 </div>
               </div>
 
               {/* Main headline */}
               <h1
-                className="animate-fade-up text-5xl md:text-7xl font-bold tracking-tight mb-6 text-foreground"
+                className="animate-fade-up text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6 text-foreground"
                 style={{ animationDelay: "100ms" }}
               >
                 Work, quietly.
@@ -47,17 +50,17 @@ const Landing = () => {
 
               {/* Subheadline */}
               <p
-                className="animate-fade-up text-xl md:text-2xl text-muted-foreground mb-4 max-w-lg leading-relaxed"
+                className="animate-fade-up text-lg sm:text-xl md:text-2xl text-muted-foreground mb-4 max-w-lg leading-relaxed"
                 style={{ animationDelay: "200ms" }}
               >
                 A calm workspace that helps you stay present
               </p>
 
               <p
-                className="animate-fade-up text-lg text-muted-foreground/60 mb-10"
+                className="animate-fade-up text-sm sm:text-lg text-muted-foreground/60 mb-10"
                 style={{ animationDelay: "250ms" }}
               >
-                No pressure. No distraction. Just you and your work.
+                No pressure. No distraction. Just u and ur work.
               </p>
 
               {/* CTA Group */}
@@ -66,7 +69,7 @@ const Landing = () => {
                 style={{ animationDelay: "300ms" }}
               >
                 <Button
-                  onClick={() => navigate("/onboarding")}
+                  onClick={() => navigate("/auth")}
                   size="lg"
                   className="group px-8 py-6 text-base font-medium transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
                 >
@@ -112,7 +115,7 @@ const Landing = () => {
 
               {/* Final CTA */}
               <Button
-                onClick={() => navigate("/onboarding")}
+                onClick={() => navigate("/auth")}
                 size="lg"
                 className="group px-12 py-7 text-lg font-medium transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/20"
               >

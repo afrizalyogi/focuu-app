@@ -14,28 +14,40 @@ import {
   Target,
   BarChart3,
   Lightbulb,
+  Square,
+  Coffee,
+  Maximize,
+  RefreshCw,
   History,
   Settings,
   LogOut,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import ActivityHeatmap from "@/components/dashboard/ActivityHeatmap";
 import ShareAchievement from "@/components/dashboard/ShareAchievement";
 import FocusChart from "@/components/dashboard/FocusChart";
 import Navbar from "@/components/layout/Navbar";
 import TopUsersTable from "@/components/dashboard/TopUsersTable";
+import FeedbackDialog from "@/components/common/FeedbackDialog";
+import AppBackground from "@/components/layout/AppBackground";
 
 const AppDashboard = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, isAdmin } = useAuth();
-  const { sessions, isLoading, getTotalStats, getDaySummaries } =
-    useSessionHistory();
+  const {
+    sessions,
+    isLoading,
+    getTotalStats,
+    getDaySummaries,
+    refreshSessions,
+  } = useSessionHistory();
 
   const stats = getTotalStats();
   // Using separate state for Heatmap timeframe (default 'year')
   const [heatmapTimeframe, setHeatmapTimeframe] = useState<
     "week" | "month" | "year"
-  >("year");
+  >("month");
   const [timeframe, setTimeframe] = useState<"week" | "month" | "year">("week");
 
   const activeData = (() => {
@@ -70,6 +82,12 @@ const AppDashboard = () => {
   };
 
   // Calculate insights
+  const isStreakActiveToday = () => {
+    // Added
+    const today = new Date().toISOString().split("T")[0];
+    return sessions?.some((s) => s.date === today) ?? false;
+  };
+
   const avgMinutesPerDay =
     stats.daysPresent > 0
       ? Math.round(stats.totalMinutes / stats.daysPresent)
@@ -101,31 +119,29 @@ const AppDashboard = () => {
     return "Keep showing up. Every session strengthens your focus muscle.";
   };
 
-  return (
-    <div className="min-h-screen bg-background p-4 md:p-8 space-y-8 animate-fade-in pb-24">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm -mx-4 md:-mx-8 px-4 md:px-8 border-b border-border/20">
-        <Navbar />
-      </div>
+  const suggestion = getSuggestion(); // Moved here as per instruction's implied order
 
-      {/* Main content */}
-      <main className="relative z-10 flex-1 px-4 md:px-6 py-8">
-        <div className="max-w-6xl mx-auto space-y-8 animate-fade-up">
-          {/* Welcome & Quick Action */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold text-foreground">
-                Welcome back
-              </h1>
-              <p className="text-muted-foreground text-sm mt-1">
-                {user?.email}
-                {isPro && (
-                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                    Pro
-                  </span>
-                )}
-              </p>
-            </div>
+  return (
+    <div className="min-h-screen bg-background relative overflow-hidden transition-colors duration-500">
+      <AppBackground />
+
+      {/* Main Content */}
+      <main className="relative z-10 container max-w-6xl mx-auto px-4 py-8 md:py-12 flex flex-col gap-8 animate-fade-in">
+        {/* Welcome Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+              Welcome back,{" "}
+              <span className="text-primary">
+                {profile?.display_name?.split(" ")[0] || "Creator"}
+              </span>
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Ready to find your flow today?
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
             <Button
               onClick={handleStartSession}
               size="lg"
@@ -135,8 +151,26 @@ const AppDashboard = () => {
               <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>
+        </div>
 
-          {/* Stats Overview */}
+        {/* Stats Overview */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium text-foreground">Overview</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshSessions}
+              disabled={isLoading}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw
+                className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")}
+              />
+              Refresh
+            </Button>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {isLoading ? (
               <>
@@ -222,7 +256,7 @@ const AppDashboard = () => {
             <h2 className="text-lg font-medium text-foreground mb-4">
               Quick Access
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex flex-col lg:flex-row gap-4 items-stretch">
               <Card
                 className="bg-card/50 border-border/30 hover:bg-card/70 hover:border-primary/30 transition-calm cursor-pointer group"
                 onClick={() => navigate("/work")}
@@ -257,6 +291,23 @@ const AppDashboard = () => {
                   <p className="text-sm text-muted-foreground">
                     Review your past sessions and track your consistency over
                     time.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="bg-card/50 border-border/30 hover:bg-card/70 hover:border-primary/30 transition-calm cursor-pointer group"
+                onClick={() => navigate("/app/billing")}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-calm">
+                      <Users className="w-4 h-4 text-green-500" />
+                    </div>
+                    <h3 className="font-medium text-foreground">Billing</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Manage your subscription, view invoices and payment history.
                   </p>
                 </CardContent>
               </Card>
@@ -299,105 +350,26 @@ const AppDashboard = () => {
           </div>
 
           {/* Recent Activity Preview */}
-          {stats.totalSessions > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-medium text-foreground">
-                  Recent activity
-                </h2>
-                <div className="flex bg-secondary/50 rounded-lg p-1">
-                  {(["week", "month", "year"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setTimeframe(t)}
-                      className={`
-                        px-3 py-1 text-xs font-medium rounded-md transition-all
-                        ${
-                          timeframe === t
-                            ? "bg-background shadow-sm text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
-                        }
-                      `}
-                    >
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <Card className="bg-card/50 border-border/30">
-                <CardContent className="p-4">
-                  <div className="flex gap-2 min-h-[100px] items-end">
-                    {activeData.map((day, i) => {
-                      const heightPercent =
-                        maxSessionCount > 0
-                          ? (day.sessionsCount / maxSessionCount) * 100
-                          : 0;
+          {/* Recent Activity Preview (Commented out) */}
 
-                      return (
-                        <div
-                          key={day.date}
-                          className="flex-1 flex flex-col items-center gap-2 group relative"
-                        >
-                          <div
-                            className={`
-                              w-full rounded-t-sm transition-all duration-500 ease-out
-                              ${
-                                day.sessionsCount > 0
-                                  ? "bg-primary/80 group-hover:bg-primary"
-                                  : "bg-secondary/30"
-                              }
-                            `}
-                            style={{
-                              height: `${Math.max(heightPercent, 4)}%`,
-                              minHeight: "4px",
-                            }}
-                          />
-                          <span className="text-[10px] text-muted-foreground truncate w-full text-center">
-                            {new Date(day.date)
-                              .toLocaleDateString("en-US", {
-                                weekday:
-                                  timeframe === "week" ? "short" : undefined,
-                                day:
-                                  timeframe !== "week" ? "numeric" : undefined,
-                                month:
-                                  timeframe === "year" ? "short" : undefined,
-                              })
-                              .slice(0, 3)}
-                          </span>
-
-                          {/* Tooltip */}
-                          <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-popover text-popover-foreground text-xs rounded px-2 py-1 shadow-lg whitespace-nowrap z-10 pointer-events-none">
-                            {new Date(day.date).toLocaleDateString()}
-                            <br />
-                            {day.sessionsCount} sessions
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Weekly Leaderboard */}
+          {/* Leaderboard & Focus Volume (Flex with 1:3 ratio) */}
           <div className="mb-8">
-            <TopUsersTable enableTabs={true} />
-          </div>
-
-          {/* Focus Volume Section */}
-          <div className="mb-8 mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium text-foreground">
-                Focus Volume
-              </h2>
+            <h2 className="text-lg font-medium text-foreground mb-4">
+              Focus Journey
+            </h2>
+            <div className="flex flex-col lg:flex-row gap-4 items-stretch mb-8">
+              <div className="flex-1 flex flex-col">
+                <TopUsersTable enableTabs={true} />
+              </div>
+              <div className="flex-[2] flex flex-col">
+                <FocusChart />
+              </div>
             </div>
-            <FocusChart />
           </div>
 
           {/* Focus History (Heatmap) Section */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col md:flex-row items-center justify-between mb-4">
               <h2 className="text-lg font-medium text-foreground">
                 Activity Heatmap
               </h2>

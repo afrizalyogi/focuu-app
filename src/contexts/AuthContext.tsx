@@ -16,7 +16,11 @@ interface AuthContextType {
   isAdmin: boolean;
   hasProAccess: boolean;
   signIn: (email: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    data?: { full_name?: string },
+  ) => Promise<{ error: Error | null }>;
   signInWithPassword: (
     email: string,
     password: string,
@@ -101,7 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth`,
       },
     });
     return { error };
@@ -110,12 +114,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (
     email: string,
     password: string,
+    data?: { full_name?: string },
   ): Promise<{ error: Error | null }> => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth`,
+        data: data ? { full_name: data.full_name } : undefined,
       },
     });
     return { error };
@@ -136,7 +142,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth`,
       },
     });
     return { error: error as Error | null };

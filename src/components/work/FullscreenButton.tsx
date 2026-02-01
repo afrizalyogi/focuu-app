@@ -8,7 +8,10 @@ interface FullscreenButtonProps {
   size?: "sm" | "md";
 }
 
-const FullscreenButton = ({ className, size = "md" }: FullscreenButtonProps) => {
+const FullscreenButton = ({
+  className,
+  size = "md",
+}: FullscreenButtonProps) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Listen for fullscreen changes
@@ -18,7 +21,8 @@ const FullscreenButton = ({ className, size = "md" }: FullscreenButtonProps) => 
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   const toggleFullscreen = useCallback(async () => {
@@ -33,8 +37,9 @@ const FullscreenButton = ({ className, size = "md" }: FullscreenButtonProps) => 
     }
   }, []);
 
-  const iconSize = size === "sm" ? "w-4 h-4" : "w-5 h-5";
-  const buttonSize = size === "sm" ? "w-8 h-8" : "w-10 h-10";
+  /* Matching DocumentPiPButton size (w-14 h-14 = 3.5rem) */
+  const iconSize = size === "sm" ? "w-4 h-4" : "w-6 h-6";
+  const buttonSize = size === "sm" ? "w-8 h-8" : "w-14 h-14";
 
   return (
     <Button
@@ -44,15 +49,16 @@ const FullscreenButton = ({ className, size = "md" }: FullscreenButtonProps) => 
       className={cn(
         buttonSize,
         "rounded-full border border-border/30 bg-card/20 backdrop-blur-sm",
-        "hover:bg-card/50 hover:border-primary/30 transition-calm",
-        className
+        "hover:bg-card/40 hover:text-foreground transition-all",
+        size !== "sm" && "text-muted-foreground", // Match PiP color
+        className,
       )}
       title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
     >
       {isFullscreen ? (
-        <Minimize className={cn(iconSize, "text-muted-foreground")} />
+        <Minimize className={iconSize} />
       ) : (
-        <Maximize className={cn(iconSize, "text-muted-foreground")} />
+        <Maximize className={iconSize} />
       )}
     </Button>
   );

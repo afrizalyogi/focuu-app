@@ -33,6 +33,7 @@ const generateMockRevenue = () => {
 };
 
 const RevenueChart = () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -221,6 +222,7 @@ const RevenueChart = () => {
                   borderRadius: "8px",
                   border: "1px solid hsl(var(--border))",
                 }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={(value: number, name: string, props: any) => {
                   const type = props.payload.type;
                   return [`$${value.toLocaleString()}`, type];

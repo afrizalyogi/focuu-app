@@ -1,117 +1,42 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button"; // Add Button import
+import { Send } from "lucide-react"; // Add Send icon import
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useRandomChat } from "@/hooks/useRandomChat";
-
-interface ChatMessage {
-  id: string;
-  user_id?: string;
-  message: string;
-  created_at: string;
-  username?: string;
-}
+import { ChatMessage } from "@/hooks/useLiveChat";
 
 interface LiveFocusChatProps {
   isPro: boolean;
   onUpgradeClick: () => void;
-  isWorkingSession?: boolean;
+  messages: ChatMessage[];
+  sendMessage: (text: string) => Promise<void>;
+  isLoading: boolean;
 }
 
-const LiveFocusChat = ({ isPro, onUpgradeClick, isWorkingSession = false }: LiveFocusChatProps) => {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+const LiveFocusChat = ({
+  isPro,
+  onUpgradeClick,
+  messages,
+  sendMessage,
+  isLoading,
+}: LiveFocusChatProps) => {
   const [newMessage, setNewMessage] = useState("");
-  const [canSend, setCanSend] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Random chat message handler
-  const handleRandomMessage = useCallback((msg: ChatMessage) => {
-    setMessages((prev) => [...prev, msg]);
-  }, []);
-
-  // Enable random chat
-  useRandomChat({
-    enabled: true,
-    onNewMessage: handleRandomMessage,
-    minInterval: 20000,
-    maxInterval: 80000,
-  });
-
-  // Fetch initial messages
-  useEffect(() => {
-    const fetchMessages = async () => {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(50);
-
-      if (error) {
-        console.error('Error fetching messages:', error);
-      } else {
-        setMessages(data || []);
-      }
-      setIsLoading(false);
-    };
-
-    fetchMessages();
-  }, []);
-
-  // Subscribe to realtime updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('chat_messages_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-        },
-        (payload) => {
-          const newMsg = payload.new as ChatMessage;
-          setMessages((prev) => [...prev, newMsg]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Slow mode: 1 message per 2 minutes
   const handleSend = async () => {
-    if (!newMessage.trim() || !canSend || !isPro || !user) return;
-    
-    const messageText = newMessage.trim().slice(0, 140);
-    setNewMessage("");
-    setCanSend(false);
+    if (!newMessage.trim() || !isPro) return;
 
-    const { error } = await supabase
-      .from('chat_messages')
-      .insert({
-        user_id: user.id,
-        message: messageText,
-      });
-
-    if (error) {
-      console.error('Error sending message:', error);
-      setCanSend(true);
-      return;
+    try {
+      await sendMessage(newMessage);
+      setNewMessage("");
+    } catch (error) {
+      // Error handled in hook
     }
-
-    // Re-enable after 2 minutes
-    setTimeout(() => setCanSend(true), 120000);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -123,7 +48,7 @@ const LiveFocusChat = ({ isPro, onUpgradeClick, isWorkingSession = false }: Live
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
@@ -141,10 +66,10 @@ const LiveFocusChat = ({ isPro, onUpgradeClick, isWorkingSession = false }: Live
 
       {/* Chat area */}
       <div className="relative">
-        <div 
+        <div
           className={cn(
             "h-[140px] overflow-y-auto rounded-xl bg-secondary/30 border border-border/30 p-3 space-y-2",
-            !isPro && "blur-[2px]"
+            !isPro && "blur-[2px]",
           )}
         >
           {isLoading ? (
@@ -153,14 +78,13 @@ const LiveFocusChat = ({ isPro, onUpgradeClick, isWorkingSession = false }: Live
             </div>
           ) : messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <span className="text-xs text-muted-foreground/60">No messages yet. Be the first to encourage!</span>
+              <span className="text-xs text-muted-foreground/60">
+                No messages yet. Be the first to encourage!
+              </span>
             </div>
           ) : (
             messages.map((msg) => (
-              <div 
-                key={msg.id}
-                className="text-sm text-foreground/80"
-              >
+              <div key={msg.id} className="text-sm text-foreground/80">
                 <span className="text-muted-foreground/40 text-xs mr-2">
                   {formatTime(msg.created_at)}
                 </span>
@@ -178,7 +102,7 @@ const LiveFocusChat = ({ isPro, onUpgradeClick, isWorkingSession = false }: Live
 
         {/* Overlay for free users */}
         {!isPro && (
-          <div 
+          <div
             onClick={onUpgradeClick}
             className="absolute inset-0 flex items-center justify-center cursor-pointer group bg-background/20 rounded-xl"
           >
@@ -191,22 +115,30 @@ const LiveFocusChat = ({ isPro, onUpgradeClick, isWorkingSession = false }: Live
 
       {/* Input for Pro users */}
       {isPro ? (
-        <div className="relative">
+        <div className="relative flex items-center gap-2">
           <Input
             type="text"
-            placeholder={canSend ? "Encourage, don't distract..." : "Slow mode active..."}
+            placeholder="Encourage, don't distract..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value.slice(0, 140))}
             onKeyDown={handleKeyDown}
-            disabled={!canSend || !user}
-            className="bg-secondary/50 border border-border/50 focus-visible:ring-1 focus-visible:ring-primary pr-16"
+            className="flex-1 bg-secondary/50 border border-border/50 focus-visible:ring-1 focus-visible:ring-primary pr-16"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/50">
+          <span className="absolute right-12 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/50">
             {newMessage.length}/140
           </span>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={handleSend}
+            disabled={!newMessage.trim()}
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-primary/20 hover:text-primary transition-colors"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
         </div>
       ) : (
-        <div 
+        <div
           onClick={onUpgradeClick}
           className="p-2 rounded-xl bg-secondary/30 border border-border/30 text-center cursor-pointer group"
         >

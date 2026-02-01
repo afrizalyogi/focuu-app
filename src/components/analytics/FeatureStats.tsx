@@ -36,6 +36,7 @@ const FeatureStats = () => {
         const themeCounts: Record<string, number> = {};
         let totalEvents = 0;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data.forEach((d: any) => {
           const features = d.event_data?.features;
           if (!features) return;

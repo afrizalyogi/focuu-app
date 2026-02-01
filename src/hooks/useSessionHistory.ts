@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase, Session } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { EnergyMode } from "./useSessionTimer";
+import { encryptAndStore, retrieveAndDecrypt } from "@/utils/secureStorage";
 
 export interface SessionRecord {
   id: string;
@@ -18,87 +19,81 @@ interface DaySummary {
   totalMinutes: number;
 }
 
-const LOCAL_STORAGE_KEY = "focuu_sessions";
+const SECURE_SESSIONS_KEY = "focuu_secure_sessions_v1";
 
 export const useSessionHistory = () => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch sessions from Supabase if logged in, otherwise from localStorage
+  // Core fetch function
+  const fetchSessionsFromDB = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("completed_at", { ascending: false })
+      .limit(100);
+
+    if (!error && data) {
+      const mapped: SessionRecord[] = data.map((s) => ({
+        id: s.id,
+        date: new Date(s.completed_at).toISOString().split("T")[0],
+        energyMode: s.energy_mode as EnergyMode,
+        intent: s.intent,
+        durationMinutes: s.duration_minutes,
+        completedAt: s.completed_at,
+      }));
+      setSessions(mapped);
+      await encryptAndStore(SECURE_SESSIONS_KEY, mapped);
+      console.log("Refreshed sessions from DB and updated cache");
+    }
+    setIsLoading(false);
+  }, [user]);
+
+  // Initial Load Strategy
   useEffect(() => {
-    const fetchSessions = async () => {
+    const init = async () => {
       if (user) {
-        // Sync local sessions to DB if they exist
-        const localSessions = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (localSessions) {
-          try {
-            const parsed = JSON.parse(localSessions);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const { error: syncError } = await supabase
-                .from("sessions")
-                .upsert(
-                  parsed.map((s: any) => ({
-                    id: s.id,
-                    user_id: user.id,
-                    energy_mode: s.energyMode,
-                    intent: s.intent,
-                    duration_minutes: s.durationMinutes,
-                    completed_at: s.completedAt,
-                  })),
-                );
-
-              if (!syncError) {
-                localStorage.removeItem(LOCAL_STORAGE_KEY);
-                console.log("Synced local sessions to database");
-              }
-            }
-          } catch (e) {
-            console.error("Error syncing local sessions:", e);
-          }
-        }
-
         setIsLoading(true);
-        const { data, error } = await supabase
-          .from("sessions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("completed_at", { ascending: false })
-          .limit(100);
+        // 1. Try secure cache
+        const cached =
+          await retrieveAndDecrypt<SessionRecord[]>(SECURE_SESSIONS_KEY);
 
-        if (!error && data) {
-          const mapped: SessionRecord[] = data.map((s) => ({
-            id: s.id,
-            date: new Date(s.completed_at).toISOString().split("T")[0],
-            energyMode: s.energy_mode as EnergyMode,
-            intent: s.intent,
-            durationMinutes: s.duration_minutes,
-            completedAt: s.completed_at,
-          }));
-          setSessions(mapped);
+        if (cached && Array.isArray(cached) && cached.length > 0) {
+          setSessions(cached);
+          setIsLoading(false);
+          console.log("Loaded sessions from secure cache");
+          // Per user request: DO NOT hit API if cache exists.
+          // Only explicit refresh will trigger DB fetch.
+          return;
         }
-        setIsLoading(false);
+
+        // 2. If no cache, fetch from DB
+        await fetchSessionsFromDB();
       } else {
-        // Load from localStorage for anonymous users
-        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (stored) {
-          try {
-            setSessions(JSON.parse(stored));
-          } catch {
-            localStorage.removeItem(LOCAL_STORAGE_KEY);
-          }
-        }
+        // Load from localStorage for anonymous users (Legacy/Guest)
+        // We can keep using standard localStorage for guests or upgrade them too?
+        // Let's use secure storage for consistency if we want, but guests dont need security as much?
+        // Use standard LS for guests to avoid complexity with key generation if not persistent enough.
+        // Actually, retrieveAndDecrypt works fine.
+        const cached =
+          await retrieveAndDecrypt<SessionRecord[]>(SECURE_SESSIONS_KEY);
+        if (cached) setSessions(cached);
       }
     };
 
-    fetchSessions();
-  }, [user]);
+    init();
+  }, [user, fetchSessionsFromDB]); // fetchSessionsFromDB depends on user
 
   const recordSession = useCallback(
     async (
       energyMode: EnergyMode,
       intent: string | null,
       durationMinutes: number,
+      timerMode: string = "flexible",
     ) => {
       const newSession: SessionRecord = {
         id: crypto.randomUUID(),
@@ -110,24 +105,47 @@ export const useSessionHistory = () => {
       };
 
       if (user) {
+        // Map to DB enums
+        const dbEnergyLevel =
+          energyMode === "normal"
+            ? "okay"
+            : energyMode === "focused"
+              ? "high"
+              : energyMode === "custom"
+                ? "okay"
+                : energyMode;
+
+        const dbTimerMode = timerMode === "flexible" ? "stopwatch" : "pomodoro";
+
         // Save to Supabase
         const { error } = await supabase.from("sessions").insert({
           id: newSession.id,
           user_id: user.id,
-          energy_mode: energyMode,
+          energy_level: dbEnergyLevel, // note column name change if needed, checking schema
+          // Schema says 'energy_level', my previous read saw 'energy_mode' in upsert.
+          // Schema step 3063 line 63: energy_level
+          // Code step 3056 line 44: energy_mode: s.energyMode (in upsert) and line 117 energy_mode: energyMode
+          // So previous code was using WRONG COLUMN NAME 'energy_mode'. Schema has 'energy_level'.
+          timer_mode: dbTimerMode,
           intent,
           duration_minutes: durationMinutes,
           completed_at: newSession.completedAt,
         });
 
-        if (!error) {
-          setSessions((prev) => [newSession, ...prev].slice(0, 100));
+        if (error) {
+          console.error("Failed to save session:", error);
+        } else {
+          setSessions((prev) => {
+            const updated = [newSession, ...prev].slice(0, 100);
+            encryptAndStore(SECURE_SESSIONS_KEY, updated); // Update cache
+            return updated;
+          });
         }
       } else {
-        // Save to localStorage for anonymous users
+        // Guest mode
         setSessions((prev) => {
           const updated = [newSession, ...prev].slice(0, 100);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+          encryptAndStore(SECURE_SESSIONS_KEY, updated);
           return updated;
         });
       }
@@ -188,5 +206,28 @@ export const useSessionHistory = () => {
     recordSession,
     getDaySummaries,
     getTotalStats,
+    refreshSessions: fetchSessionsFromDB,
+    upsertSession: async (session: SessionRecord) => {
+      // Keep existing upsert logic for completion
+      if (!user) return;
+      const dbEnergyLevel =
+        session.energyMode === "normal"
+          ? "okay"
+          : session.energyMode === "focused"
+            ? "high"
+            : session.energyMode === "custom"
+              ? "okay"
+              : session.energyMode;
+      await supabase.from("sessions").upsert({
+        id: session.id,
+        user_id: user.id,
+        energy_level: dbEnergyLevel,
+        timer_mode: "stopwatch",
+        intent: session.intent,
+        duration_minutes: session.durationMinutes,
+        completed_at: session.completedAt,
+        completed: false,
+      });
+    },
   };
 };

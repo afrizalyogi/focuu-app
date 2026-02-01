@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
-import { ArrowLeft } from "lucide-react";
+import BackButton from "@/components/common/BackButton";
 
 const emailSchema = z.string().email("Please enter a valid email");
 
@@ -17,7 +17,7 @@ const ForgotPassword = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const result = emailSchema.safeParse(email.trim());
     if (!result.success) {
       setError(result.error.errors[0].message);
@@ -43,14 +43,8 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between p-4 md:p-6">
-        <button
-          onClick={() => navigate("/auth")}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to sign in
-        </button>
+      <header className="relative z-10 w-full max-w-6xl mx-auto flex items-center justify-between px-4 py-4 md:py-6">
+        <BackButton to="/auth" label="Back to sign in" />
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
@@ -79,7 +73,9 @@ const ForgotPassword = () => {
             )}
 
             {message && (
-              <p className="text-sm text-focuu-presence text-center">{message}</p>
+              <p className="text-sm text-focuu-presence text-center">
+                {message}
+              </p>
             )}
 
             <Button

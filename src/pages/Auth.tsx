@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import BackButton from "@/components/common/BackButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
@@ -19,15 +21,17 @@ const Auth = () => {
   const { signUp, signInWithPassword, signInWithGoogle, user } = useAuth();
 
   const initialMode =
-    searchParams.get("mode") === "reset" ? "reset" : "sign-in";
+    searchParams.get("mode") === "reset" ? "reset" : "sign-up";
   const [mode, setMode] = useState<AuthMode>(initialMode as AuthMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Redirect if already logged in (unless in preview mode for heatmap)
   const isPreview = searchParams.get("preview") === "true";
@@ -63,11 +67,18 @@ const Auth = () => {
   const handleSignUp = async () => {
     if (!validateEmail() || !validatePassword()) return;
 
+    if (!agreedToTerms) {
+      setError("You must agree to the Privacy Policy and Terms of Service");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
     setMessage("");
 
-    const { error } = await signUp(email.trim(), password);
+    const { error } = await signUp(email.trim(), password, {
+      full_name: fullName.trim(),
+    });
 
     if (error) {
       if (error.message.includes("already registered")) {
@@ -152,13 +163,8 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between p-4 md:p-6">
-        <button
-          onClick={() => navigate("/")}
-          className="text-sm text-muted-foreground hover:text-foreground transition-calm"
-        >
-          ← Back
-        </button>
+      <header className="relative z-10 w-full max-w-6xl mx-auto flex items-center justify-between px-4 py-4 md:py-6">
+        <BackButton to="/" label="Back" />
       </header>
 
       {/* Main */}
@@ -183,14 +189,26 @@ const Auth = () => {
 
           <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
             {mode !== "reset" && (
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-primary"
-                disabled={isLoading}
-              />
+              <>
+                {mode === "sign-up" && (
+                  <Input
+                    type="text"
+                    placeholder="Full Name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-primary"
+                    disabled={isLoading}
+                  />
+                )}
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-primary"
+                  disabled={isLoading}
+                />
+              </>
             )}
 
             <Input
@@ -201,6 +219,30 @@ const Auth = () => {
               className="bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-primary"
               disabled={isLoading}
             />
+
+            {/* Terms Checkbox */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="terms"
+                checked={agreedToTerms}
+                onCheckedChange={(checked) =>
+                  setAgreedToTerms(checked as boolean)
+                }
+              />
+              <label
+                htmlFor="terms"
+                className="text-xs text-muted-foreground leading-snug cursor-pointer select-none"
+              >
+                I agree to the{" "}
+                <a href="#" className="text-primary hover:underline">
+                  Privacy Policy
+                </a>{" "}
+                and{" "}
+                <a href="#" className="text-primary hover:underline">
+                  Terms of Service
+                </a>
+              </label>
+            </div>
 
             {mode === "reset" && (
               <Input
@@ -316,6 +358,13 @@ const Auth = () => {
               )}
             </div>
           )}
+
+          <button
+            onClick={() => navigate("/work")}
+            className="text-sm text-muted-foreground hover:text-foreground transition-calm mt-4"
+          >
+            Continue without login
+          </button>
         </div>
       </main>
     </div>

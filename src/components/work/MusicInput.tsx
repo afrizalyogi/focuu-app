@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface MusicInputProps {
   value: string;
-  title: string;
+  // title: string; // Deprecated
   onChange: (url: string, title?: string) => void;
   isPro: boolean;
   onUpgradeClick?: () => void;
@@ -14,23 +14,21 @@ interface MusicInputProps {
 
 const MusicInput = ({
   value,
-  title,
+  // title,
   onChange,
   isPro,
   onUpgradeClick,
 }: MusicInputProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputValue, setInputValue] = useState(value);
-  const [inputTitle, setInputTitle] = useState(title);
 
   const handleSubmit = () => {
-    onChange(inputValue, inputTitle);
+    onChange(inputValue, "");
     setIsExpanded(false);
   };
 
   const handleClear = () => {
     setInputValue("");
-    setInputTitle("");
     onChange("", "");
   };
 
@@ -54,28 +52,33 @@ const MusicInput = ({
 
   if (value && !isExpanded) {
     return (
-      <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card/30 border border-border/30">
-        <Music className="w-4 h-4 text-primary" />
-        <div className="flex flex-col min-w-0">
-          <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
-            {title || "Now Playing"}
-          </span>
-          <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-            {value}
-          </span>
-        </div>
-        <button
+      <div className="flex items-center gap-4 px-4 py-2 rounded-xl bg-card/30 border border-border/30">
+        {/* Spinning Disc */}
+        <div
+          className="relative w-10 h-10 group cursor-pointer"
           onClick={() => setIsExpanded(true)}
-          className="text-xs text-primary hover:underline ml-2"
         >
-          Change
-        </button>
-        <button
-          onClick={handleClear}
-          className="p-1 hover:bg-destructive/20 rounded-full transition-colors"
-        >
-          <X className="w-3 h-3 text-muted-foreground" />
-        </button>
+          <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-spin-slow" />
+          <div className="absolute inset-2 rounded-full bg-primary/20 backdrop-blur-sm flex items-center justify-center">
+            <Music className="w-4 h-4 text-primary" />
+          </div>
+        </div>
+
+        {/* Controls - Simplified */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded bg-secondary/50"
+          >
+            Change
+          </button>
+          <button
+            onClick={handleClear}
+            className="p-1.5 hover:bg-destructive/20 hover:text-destructive rounded-full transition-colors text-muted-foreground"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
       </div>
     );
   }
@@ -84,16 +87,8 @@ const MusicInput = ({
     <div className="space-y-3 p-4 rounded-xl bg-card/30 border border-border/30 animate-fade-in">
       <div className="flex items-center gap-2">
         <Link className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">Music Details</span>
+        <span className="text-sm text-muted-foreground">Music URL</span>
       </div>
-
-      <Input
-        type="text"
-        placeholder="Station Name (e.g. Lofi Beats)"
-        value={inputTitle}
-        onChange={(e) => setInputTitle(e.target.value)}
-        className="bg-secondary/50 border-border/50"
-      />
 
       <Input
         type="url"
@@ -105,7 +100,7 @@ const MusicInput = ({
 
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={handleSubmit} disabled={!inputValue.trim()}>
-          {value ? "Update" : "Add music"}
+          {value ? "Update" : "Play"}
         </Button>
         <Button
           size="sm"
@@ -113,7 +108,6 @@ const MusicInput = ({
           onClick={() => {
             setIsExpanded(false);
             setInputValue(value);
-            setInputTitle(title);
           }}
         >
           Cancel

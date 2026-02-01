@@ -13,7 +13,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const UsageFrequencyCharts = () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [hourlyData, setHourlyData] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [dailyData, setDailyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

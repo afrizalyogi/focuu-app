@@ -8,14 +8,14 @@ export const InteractionTracker = () => {
 
   const handleClick = useCallback(
     (e: MouseEvent) => {
-      let x = e.clientX;
-      let y = e.clientY;
+      const x = e.clientX;
+      const y = e.clientY;
       let elementId = (e.target as HTMLElement).id || "";
       let interactionType = "general";
       let componentText = "";
       let componentTag = "";
       let distanceFromCenter = 0;
-      let targetElement = e.target as HTMLElement;
+      const targetElement = e.target as HTMLElement;
 
       // Smart Tracking Logic
       const isInteractive = targetElement.matches(

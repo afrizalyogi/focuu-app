@@ -52,6 +52,7 @@ const HeatmapVisualizer = () => {
       } else if (data) {
         const componentMap = new Map<string, ComponentMetric>();
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data.forEach((d: any) => {
           const ed = d.event_data;
           const type =
@@ -102,9 +103,9 @@ const HeatmapVisualizer = () => {
 
   return (
     <Card className="col-span-1 md:col-span-2 overflow-hidden h-full flex flex-col">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 bg-muted/20">
+      <CardHeader className="flex flex-col md:flex-row text-center md:text-left gap-2 items-center justify-between pb-2 bg-muted/20">
         <div>
-          <CardTitle>Component Analytics</CardTitle>
+          <CardTitle className="mb-2">Component Analytics</CardTitle>
           <CardDescription>Click accuracy by component</CardDescription>
         </div>
         <Select value={selectedPage} onValueChange={setSelectedPage}>
@@ -115,6 +116,7 @@ const HeatmapVisualizer = () => {
             <SelectItem value="/">Landing</SelectItem>
             <SelectItem value="/work">Work</SelectItem>
             <SelectItem value="/pricing">Pricing</SelectItem>
+            <SelectItem value="/auth">Auth</SelectItem>
           </SelectContent>
         </Select>
       </CardHeader>
@@ -137,10 +139,10 @@ const HeatmapVisualizer = () => {
             components.map((comp, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors"
+                className="flex flex-col md:flex-row gap-2 text-center md:text-left items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors"
               >
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col md:flex-row items-center gap-2">
                     <span className="font-semibold">{comp.name}</span>
                     <Badge variant="outline" className="text-xs font-mono">
                       {comp.tag}

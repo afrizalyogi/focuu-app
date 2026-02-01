@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import BackButton from "@/components/common/BackButton";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ import {
   Palette,
   BarChart3,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type PlanType = "monthly" | "yearly" | "lifetime";
 
@@ -55,12 +57,14 @@ const Pricing = () => {
 
     if (data) {
       // Correct type casting mapping
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase returns generic JSON, manual type assertion needed
       const mappedPlans = data.map((p: any) => ({
         ...p,
         interval: p.interval as PlanType,
       }));
       setDbPlans(mappedPlans);
       // Select 'yearly' by default if exists, else first one
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase returns generic JSON, manual type assertion needed
       const yearly = mappedPlans.find((p: any) => p.interval === "yearly");
       if (yearly) setSelectedPlanId(yearly.id);
       else if (mappedPlans.length > 0) setSelectedPlanId(mappedPlans[0].id);
@@ -133,14 +137,8 @@ const Pricing = () => {
       {/* Subtle background gradient */}
       <div className="fixed inset-0 bg-gradient-to-b from-primary/3 via-transparent to-transparent pointer-events-none" />
 
-      <header className="relative z-10 p-4 md:p-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-calm"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
+      <header className="relative z-10 max-w-6xl mx-auto w-full py-4 md:py-6 px-4">
+        <BackButton />
       </header>
 
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-20">
@@ -189,14 +187,14 @@ const Pricing = () => {
                   </div>
                 ))}
               </div>
-
               {/* Other features */}
               <div className="mb-10 text-center">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">
                   Plus everything else
                 </p>
                 <div className="flex flex-wrap justify-center gap-3">
-                  {otherFeatures.map((feature, i) => (
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase returns generic JSON, manual type assertion needed */}
+                  {otherFeatures.map((feature: any, i) => (
                     <span
                       key={i}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/50 text-sm text-muted-foreground"
@@ -210,8 +208,22 @@ const Pricing = () => {
 
               {/* Plan selector */}
               {loading ? (
-                <div className="text-center py-10 text-muted-foreground">
-                  Loading plans...
+                <div className="rounded-2xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm mb-6">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4 text-center">
+                    Choose your plan
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+                    {[1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className="p-4 rounded-xl border-2 border-transparent bg-secondary/30 h-[120px] flex flex-col items-center justify-center space-y-2"
+                      >
+                        <Skeleton className="h-4 w-24 bg-muted-foreground/20" />
+                        <Skeleton className="h-8 w-20 bg-muted-foreground/20" />
+                        <Skeleton className="h-3 w-16 bg-muted-foreground/20" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-border/50 bg-card/30 p-6 backdrop-blur-sm mb-6">
@@ -292,7 +304,6 @@ const Pricing = () => {
                   )}
                 </div>
               )}
-
               {/* No pressure note */}
               <p className="text-xs text-muted-foreground/50 text-center">
                 focuu will still be here if you stay free.
@@ -343,7 +354,6 @@ const Pricing = () => {
               <ul className="text-sm text-muted-foreground space-y-1">
                 {selectedPlan?.features &&
                 typeof selectedPlan.features === "object" ? (
-                  // @ts-ignore
                   selectedPlan.features.map((feat: string, i: number) => (
                     <li key={i} className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-primary" />

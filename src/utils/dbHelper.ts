@@ -4,10 +4,13 @@ import { usePermissionError } from "@/components/ui/PermissionErrorModal";
  * Retries a promise-returning function up to `maxRetries` times.
  * If it fails with a permission error (401/403), it triggers the Permission Error Modal.
  */
+
 export async function withRetry<T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fn: () => Promise<{ data: T | null; error: any }>,
   maxRetries = 3,
   delayMs = 1000,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<{ data: T | null; error: any }> {
   let attempt = 0;
 

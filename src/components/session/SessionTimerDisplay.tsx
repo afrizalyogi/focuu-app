@@ -8,18 +8,18 @@ interface SessionTimerDisplayProps {
   isOnBreak?: boolean;
 }
 
-const SessionTimerDisplay = ({ 
-  formattedTime, 
-  isRunning, 
+const SessionTimerDisplay = ({
+  formattedTime,
+  isRunning,
   progress,
   timerType = "countdown",
-  isOnBreak = false
+  isOnBreak = false,
 }: SessionTimerDisplayProps) => {
   return (
-    <div className="flex flex-col items-center gap-8">
+    <div className="flex flex-col items-center gap-2">
       {/* Timer display */}
       <div className="relative">
-        <div 
+        <div
           className={`
             text-7xl md:text-8xl font-medium tracking-tight text-foreground 
             tabular-nums transition-calm
@@ -33,7 +33,7 @@ const SessionTimerDisplay = ({
       {/* Progress bar - only for countdown mode */}
       {timerType === "countdown" && (
         <div className="w-48 h-0.5 bg-secondary rounded-full overflow-hidden">
-          <div 
+          <div
             className="h-full bg-primary/60 transition-all duration-1000 ease-linear rounded-full"
             style={{ width: `${progress * 100}%` }}
           />
@@ -41,16 +41,14 @@ const SessionTimerDisplay = ({
       )}
 
       {/* For stopwatch - no visible indicator, just spacing */}
-      {timerType === "stopwatch" && (
-        <div className="h-2" />
-      )}
+      {timerType === "stopwatch" && <div className="h-2" />}
 
       {/* Status text - calm, observational per PRD */}
       <p className="text-sm text-muted-foreground">
-        {isOnBreak 
-          ? "Take a moment. Breathe." 
-          : isRunning 
-            ? "You're here. Take your time." 
+        {isOnBreak
+          ? "Take a moment. Breathe."
+          : isRunning
+            ? "You're here. Take your time."
             : "Ready when you are."}
       </p>
     </div>

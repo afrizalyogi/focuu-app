@@ -1,5 +1,5 @@
 -- ============================================
--- FOCUU DATABASE SCHEMA - COMPLETE
+-- FOCUU DATABASE SCHEMA - COMPLETE & IDEMPOTENT
 -- Run this in Supabase SQL Editor (Cloud > Run SQL)
 -- ============================================
 
@@ -18,7 +18,7 @@ END $$;
 -- STEP 2: CREATE CORE TABLES
 -- ============================================
 
--- 2a. User roles table (separate from profiles for security)
+-- 2a. User roles table (separate from files for security)
 CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
 
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
--- 2b. Profiles table (if not exists - may already exist from auth setup)
+-- 2b. Profiles table
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT,
@@ -39,17 +39,19 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   trial_started_at TIMESTAMPTZ,
   trial_ends_at TIMESTAMPTZ,
   subscription_status TEXT DEFAULT 'free' CHECK (subscription_status IN ('free', 'trial', 'pro', 'expired')),
+  is_tutorial_seen BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Add trial columns if they don't exist
+-- Add columns safely if table already exists but columns don't
 DO $$ BEGIN
   ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ;
   ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
   ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'free';
+  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_tutorial_seen BOOLEAN DEFAULT false;
 EXCEPTION
   WHEN duplicate_column THEN null;
 END $$;
@@ -62,6 +64,7 @@ CREATE TABLE IF NOT EXISTS public.sessions (
   timer_mode TEXT CHECK (timer_mode IN ('stopwatch', 'pomodoro')),
   energy_level TEXT CHECK (energy_level IN ('low', 'okay', 'high')),
   pressure_mode TEXT CHECK (pressure_mode IN ('push', 'steady', 'support')),
+  intent TEXT,
   completed BOOLEAN DEFAULT false,
   started_at TIMESTAMPTZ DEFAULT now(),
   completed_at TIMESTAMPTZ,
@@ -71,12 +74,19 @@ CREATE TABLE IF NOT EXISTS public.sessions (
 
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 
+-- Ensure intent column exists (idempotent check)
+DO $$ BEGIN
+  ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS intent TEXT;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
+
 -- 2d. User analytics/behavior tracking table
 CREATE TABLE IF NOT EXISTS public.user_analytics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL,
-  event_data JSONB DEFAULT '{}', -- Payload: { interaction_type: 'hit'|'miss', component_text, distance, etc }
+  event_data JSONB DEFAULT '{}', 
   session_id TEXT,
   page TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -97,11 +107,12 @@ CREATE TABLE IF NOT EXISTS public.onboarding_preferences (
 
 ALTER TABLE public.onboarding_preferences ENABLE ROW LEVEL SECURITY;
 
--- 2f. User preferences table (for music, background, etc)
+-- 2f. User preferences table
 CREATE TABLE IF NOT EXISTS public.user_preferences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
   music_url TEXT,
+  music_title TEXT,
   background_url TEXT,
   background_type TEXT CHECK (background_type IN ('image', 'video', 'none')),
   theme TEXT DEFAULT 'dark' CHECK (theme IN ('dark', 'light', 'book')),
@@ -109,6 +120,13 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
 );
 
 ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
+
+-- Safely add columns if they don't exist
+DO $$ BEGIN
+  ALTER TABLE public.user_preferences ADD COLUMN IF NOT EXISTS music_title TEXT;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
 
 -- 2g. Daily streaks tracking
 CREATE TABLE IF NOT EXISTS public.user_streaks (
@@ -139,11 +157,34 @@ CREATE TABLE IF NOT EXISTS public.user_settings (
 
 ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
 
+-- 2i. User feedback table
+CREATE TABLE IF NOT EXISTS public.user_feedback (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  feedback TEXT,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.user_feedback ENABLE ROW LEVEL SECURITY;
+
+-- 2j. Live Chat Messages
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  username TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+
+
 -- ============================================
 -- STEP 3: SECURITY DEFINER FUNCTIONS
 -- ============================================
 
--- 3a. Function to check if user has a specific role
+-- 3a. Check role
 CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -159,7 +200,7 @@ AS $$
   )
 $$;
 
--- 3b. Function to check if user has active trial or pro
+-- 3b. Check user access
 CREATE OR REPLACE FUNCTION public.check_user_access(p_user_id UUID)
 RETURNS TABLE (
   is_pro BOOLEAN,
@@ -183,13 +224,11 @@ BEGIN
     RETURN;
   END IF;
   
-  -- Check if pro
   IF profile_record.is_pro THEN
     RETURN QUERY SELECT true, false, 0;
     RETURN;
   END IF;
   
-  -- Check if in trial
   IF profile_record.trial_ends_at IS NOT NULL AND profile_record.trial_ends_at > now() THEN
     RETURN QUERY SELECT 
       false, 
@@ -202,7 +241,7 @@ BEGIN
 END;
 $$;
 
--- 3c. Function to start trial for a user (1 day trial)
+-- 3c. Start trial
 CREATE OR REPLACE FUNCTION public.start_trial(p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -222,7 +261,7 @@ BEGIN
 END;
 $$;
 
--- 3d. Function to update user streak
+-- 3d. Update streak
 CREATE OR REPLACE FUNCTION public.update_user_streak(p_user_id UUID)
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -239,17 +278,14 @@ BEGIN
   WHERE user_id = p_user_id;
   
   IF streak_record IS NULL THEN
-    -- Create new streak record
     INSERT INTO public.user_streaks (user_id, current_streak, longest_streak, last_session_date)
     VALUES (p_user_id, 1, 1, today);
     RETURN 1;
   END IF;
   
   IF streak_record.last_session_date = today THEN
-    -- Already recorded today
     RETURN streak_record.current_streak;
   ELSIF streak_record.last_session_date = today - 1 THEN
-    -- Consecutive day
     new_streak := streak_record.current_streak + 1;
     UPDATE public.user_streaks
     SET 
@@ -260,7 +296,6 @@ BEGIN
     WHERE user_id = p_user_id;
     RETURN new_streak;
   ELSE
-    -- Streak broken
     UPDATE public.user_streaks
     SET 
       current_streak = 1,
@@ -272,7 +307,7 @@ BEGIN
 END;
 $$;
 
--- 3e. Function to handle new user registration (auto-start trial)
+-- 3e. New user handler
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -280,25 +315,26 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, trial_started_at, trial_ends_at, subscription_status)
+  INSERT INTO public.profiles (id, email, display_name, avatar_url, trial_started_at, trial_ends_at, subscription_status)
   VALUES (
     NEW.id,
     NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', NEW.email),
+    NEW.raw_user_meta_data->>'avatar_url',
     now(),
-    now() + INTERVAL '1 day',
+    now() + INTERVAL '7 day',
     'trial'
   );
   RETURN NEW;
 END;
 $$;
 
--- Create trigger for auto-creating profile on signup
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 3f. Helper function to set user role by email (Run via SQL Editor)
+-- 3f. Set user role helper
 CREATE OR REPLACE FUNCTION public.set_user_role(p_email TEXT, p_role TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -309,14 +345,12 @@ DECLARE
   v_user_id UUID;
   v_role app_role;
 BEGIN
-  -- Validate role
   BEGIN
     v_role := p_role::app_role;
   EXCEPTION WHEN OTHERS THEN
     RETURN 'Error: Invalid role. Use admin, moderator, or user.';
   END;
 
-  -- Find user ID from profiles (safer than querying auth.users directly if permissions are tight)
   SELECT id INTO v_user_id
   FROM public.profiles
   WHERE email = p_email;
@@ -325,20 +359,16 @@ BEGIN
     RETURN 'Error: User not found with email ' || p_email;
   END IF;
 
-  -- Upsert role
   INSERT INTO public.user_roles (user_id, role)
   VALUES (v_user_id, v_role)
   ON CONFLICT (user_id, role) DO NOTHING;
-
-  -- If assigning admin, also give them access to pro/everything via subscription override? 
-  -- Optional, but for now just role.
 
   RETURN 'Success: Set ' || p_email || ' to role ' || p_role;
 END;
 $$;
 
 -- ============================================
--- STEP 4: RLS POLICIES
+-- STEP 4: RLS POLICIES (With Safe Drops)
 -- ============================================
 
 -- Profiles policies
@@ -363,19 +393,7 @@ DROP POLICY IF EXISTS "Only admins can manage roles" ON public.user_roles;
 CREATE POLICY "Only admins can manage roles" ON public.user_roles
   FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
--- Create user_feedback table
-create table if not exists public.user_feedback (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  rating integer not null check (rating >= 1 and rating <= 5),
-  feedback text,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- Enable RLS
-alter table public.user_feedback enable row level security;
-
--- Policies
+-- User feedback policies
 DROP POLICY IF EXISTS "Users can insert their own feedback" ON public.user_feedback;
 CREATE POLICY "Users can insert their own feedback" ON public.user_feedback
   FOR INSERT WITH CHECK (auth.uid() = user_id);
@@ -410,19 +428,9 @@ DROP POLICY IF EXISTS "Admins can view all analytics" ON public.user_analytics;
 CREATE POLICY "Admins can view all analytics" ON public.user_analytics
   FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
--- Allow authenticated users to view heatmap data (fixes admin visibility issues)
 DROP POLICY IF EXISTS "Authenticated users can view heatmap data" ON public.user_analytics;
 CREATE POLICY "Authenticated users can view heatmap data" ON public.user_analytics
-  FOR SELECT
-  TO authenticated
-  USING (event_type = 'heatmap_click');
-
--- Allow authenticated users to view heatmap data (fixes admin visibility issues)
-DROP POLICY IF EXISTS "Authenticated users can view heatmap data" ON public.user_analytics;
-CREATE POLICY "Authenticated users can view heatmap data" ON public.user_analytics
-  FOR SELECT
-  TO authenticated
-  USING (event_type = 'heatmap_click');
+  FOR SELECT TO authenticated USING (event_type = 'heatmap_click');
 
 -- Onboarding preferences policies
 DROP POLICY IF EXISTS "Users can manage own onboarding" ON public.onboarding_preferences;
@@ -451,6 +459,16 @@ DROP POLICY IF EXISTS "Admins can view all streaks" ON public.user_streaks;
 CREATE POLICY "Admins can view all streaks" ON public.user_streaks
   FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
+-- Chat messages policies
+DROP POLICY IF EXISTS "Authenticated users can read chat" ON public.chat_messages;
+CREATE POLICY "Authenticated users can read chat" ON public.chat_messages
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can insert chat" ON public.chat_messages;
+CREATE POLICY "Authenticated users can insert chat" ON public.chat_messages
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+
 -- User settings policies
 DROP POLICY IF EXISTS "Users can manage own settings" ON public.user_settings;
 CREATE POLICY "Users can manage own settings" ON public.user_settings
@@ -460,8 +478,25 @@ DROP POLICY IF EXISTS "Admins can view all settings" ON public.user_settings;
 CREATE POLICY "Admins can view all settings" ON public.user_settings
   FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
+-- Storage policies (for Avatars/Objects)
+-- Assuming 'objects' table usually belongs to 'storage' schema in Supabase, 
+-- but sometimes mapped public. If this refers to 'storage.objects':
+DO $$ BEGIN
+  -- Only create policy if we are in a context where storage.objects exists
+  -- or if the user meant a public 'objects' table. 
+  -- Usually storage policies are on storage.objects.
+  -- Safe bet: DROP POLICY IF EXISTS on valid table.
+  -- Note: The user mentioned "Avatar Public View" for table "objects".
+  -- This usually means storage.
+  NULL; -- Placeholder as we can't easily script cross-schema without knowing permissions
+END $$;
+
+-- Example Storage Policy Fix (Execute this if using storage bucket 'avatars'):
+-- DROP POLICY IF EXISTS "Avatar Public View" ON storage.objects;
+-- CREATE POLICY "Avatar Public View" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+
 -- ============================================
--- STEP 5: INDEXES FOR PERFORMANCE
+-- STEP 5: INDEXES (Safe Create)
 -- ============================================
 
 CREATE INDEX IF NOT EXISTS idx_user_analytics_user_id ON public.user_analytics(user_id);
@@ -474,29 +509,12 @@ CREATE INDEX IF NOT EXISTS idx_sessions_completed_at ON public.sessions(complete
 CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);
 
 -- ============================================
--- STEP 6: ADMIN SETUP
+-- STEP 6: SUBSCRIPTION MANAGEMENT TABLES
 -- ============================================
 
--- TO SET ADMIN ROLE FOR A USER (Using Email):
--- SELECT public.set_user_role('admin@example.com', 'admin');
-
--- TO SET ADMIN ROLE FOR A USER (Using UUID):
--- INSERT INTO public.user_roles (user_id, role)
--- VALUES ('YOUR_USER_UUID_HERE', 'admin');
-
--- TO CHECK IF A USER IS ADMIN:
--- SELECT public.has_role('YOUR_USER_UUID_HERE', 'admin');
--- OR Check via Email:
--- SELECT * FROM public.user_roles WHERE user_id IN (SELECT id FROM public.profiles WHERE email = 'admin@example.com');
-
--- ============================================
--- STEP 7: SUBSCRIPTION MANAGEMENT TABLES
--- ============================================
-
--- 7a. Orders table - records all purchase attempts
 CREATE TABLE IF NOT EXISTS public.orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   plan_type TEXT NOT NULL CHECK (plan_type IN ('monthly', 'yearly', 'lifetime')),
   amount_cents INTEGER NOT NULL,
   currency TEXT DEFAULT 'USD',
@@ -511,11 +529,10 @@ CREATE TABLE IF NOT EXISTS public.orders (
 
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
--- 7b. Payments table - records successful payments
 CREATE TABLE IF NOT EXISTS public.payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE NOT NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   amount_cents INTEGER NOT NULL,
   currency TEXT DEFAULT 'USD',
   payment_provider TEXT,
@@ -527,14 +544,13 @@ CREATE TABLE IF NOT EXISTS public.payments (
 
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 
--- 7c. Subscriptions table - tracks active subscription periods
 CREATE TABLE IF NOT EXISTS public.subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   plan_type TEXT NOT NULL CHECK (plan_type IN ('monthly', 'yearly', 'lifetime')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'cancelled')),
   starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  ends_at TIMESTAMPTZ, -- NULL for lifetime
+  ends_at TIMESTAMPTZ,
   auto_renew BOOLEAN DEFAULT false,
   reminder_sent BOOLEAN DEFAULT false,
   order_id UUID REFERENCES public.orders(id),
@@ -544,7 +560,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
 
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Orders policies
+-- Subscriptions/Payment Policies
 DROP POLICY IF EXISTS "Users can view own orders" ON public.orders;
 CREATE POLICY "Users can view own orders" ON public.orders
   FOR SELECT USING (auth.uid() = user_id);
@@ -557,7 +573,6 @@ DROP POLICY IF EXISTS "Admins can manage all orders" ON public.orders;
 CREATE POLICY "Admins can manage all orders" ON public.orders
   FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
--- Payments policies
 DROP POLICY IF EXISTS "Users can view own payments" ON public.payments;
 CREATE POLICY "Users can view own payments" ON public.payments
   FOR SELECT USING (auth.uid() = user_id);
@@ -566,7 +581,6 @@ DROP POLICY IF EXISTS "Admins can manage all payments" ON public.payments;
 CREATE POLICY "Admins can manage all payments" ON public.payments
   FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
--- Subscriptions policies
 DROP POLICY IF EXISTS "Users can view own subscriptions" ON public.subscriptions;
 CREATE POLICY "Users can view own subscriptions" ON public.subscriptions
   FOR SELECT USING (auth.uid() = user_id);
@@ -584,7 +598,7 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON public.subscriptions(use
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON public.subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_ends_at ON public.subscriptions(ends_at);
 
--- Function to check and expire subscriptions (auto-downgrade)
+-- Subscription functions
 CREATE OR REPLACE FUNCTION public.check_expired_subscriptions()
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -618,7 +632,6 @@ BEGIN
 END;
 $$;
 
--- Function to activate subscription after successful payment
 CREATE OR REPLACE FUNCTION public.activate_subscription(
   p_user_id UUID,
   p_plan_type TEXT,
@@ -656,7 +669,6 @@ BEGIN
 END;
 $$;
 
--- Function to get user subscription status
 CREATE OR REPLACE FUNCTION public.get_subscription_status(p_user_id UUID)
 RETURNS TABLE (
   is_active BOOLEAN,
@@ -691,15 +703,29 @@ BEGIN
 END;
 $$;
 
+-- Pricing plans table
+CREATE TABLE IF NOT EXISTS public.pricing_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  price_cents INTEGER NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  interval TEXT NOT NULL CHECK (interval IN ('monthly', 'yearly', 'lifetime')),
+  is_active BOOLEAN DEFAULT true,
+  features JSONB DEFAULT '[]',
+  payment_link TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- ============================================
--- STEP 8: MIGRATION FIXES (Run if table already exists)
+-- STEP 7: MIGRATION FIXES (Constraint Safety)
 -- ============================================
 
--- Fix subscriptions foreign key to point to profiles instead of auth.users
--- This is required for PostgREST resource embedding (e.g. profiles!inner)
+-- 10a. Fix subscriptions foreign key (already present)
 DO $$
 BEGIN
-  -- Check if the constraint exists (simplification: attempt to drop and recreate)
+  -- Check if the constraint exists
   BEGIN
     ALTER TABLE public.subscriptions DROP CONSTRAINT IF EXISTS subscriptions_user_id_fkey;
   END;
@@ -712,39 +738,52 @@ BEGIN
     ON DELETE CASCADE;
   EXCEPTION
     WHEN duplicate_object THEN null;
-    WHEN others THEN raise notice 'Could not create constraint: %', SQLERRM;
   END;
 END $$;
 
+-- 10b. Fix Payments FK (Link to profiles instead of auth.users)
+DO $$
+BEGIN
+  BEGIN
+      ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_user_id_fkey;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  ALTER TABLE public.payments
+  ADD CONSTRAINT payments_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+  ON DELETE CASCADE;
+END $$;
+
+-- 10c. Fix Orders FK (Link to profiles instead of auth.users)
+DO $$
+BEGIN
+  BEGIN
+      ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_user_id_fkey;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  ALTER TABLE public.orders
+  ADD CONSTRAINT orders_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+  ON DELETE CASCADE;
+END $$;
+
 -- ============================================
--- ============================================
--- STEP 9: GRANT PERMISSIONS (CRITICAL)
+-- STEP 8: GRANT PERMISSIONS (Re-runnable)
 -- ============================================
 
--- Grant usage on public schema
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
--- Grant access to all tables for authorized roles
--- (RLS policies will still restrict data access row-by-row)
-
--- 1. User Roles
-GRANT SELECT ON TABLE public.user_roles TO authenticated;
-GRANT SELECT ON TABLE public.user_roles TO service_role;
-
--- 2. Profiles
+GRANT SELECT ON TABLE public.user_roles TO authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.profiles TO authenticated;
 GRANT ALL ON TABLE public.profiles TO service_role;
-
--- 3. Sessions
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.sessions TO authenticated;
 GRANT ALL ON TABLE public.sessions TO service_role;
-
--- 4. User Analytics
 GRANT SELECT, INSERT ON TABLE public.user_analytics TO authenticated;
 GRANT INSERT ON TABLE public.user_analytics TO anon;
 GRANT ALL ON TABLE public.user_analytics TO service_role;
 
--- 5. Preferences & Settings
 GRANT SELECT, INSERT, UPDATE ON TABLE public.onboarding_preferences TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.user_preferences TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.user_settings TO authenticated;
@@ -752,38 +791,125 @@ GRANT ALL ON TABLE public.onboarding_preferences TO service_role;
 GRANT ALL ON TABLE public.user_preferences TO service_role;
 GRANT ALL ON TABLE public.user_settings TO service_role;
 
--- 6. Streaks
 GRANT SELECT, INSERT, UPDATE ON TABLE public.user_streaks TO authenticated;
 GRANT ALL ON TABLE public.user_streaks TO service_role;
 
--- 7. Feedback (if present)
 GRANT SELECT, INSERT ON TABLE public.user_feedback TO authenticated;
 GRANT ALL ON TABLE public.user_feedback TO service_role;
 
--- 8. Subscription/Payment Tables
 GRANT SELECT, INSERT, UPDATE ON TABLE public.orders TO authenticated;
 GRANT SELECT ON TABLE public.payments TO authenticated;
 GRANT SELECT ON TABLE public.subscriptions TO authenticated;
+GRANT SELECT, INSERT ON TABLE public.chat_messages TO authenticated;
 GRANT ALL ON TABLE public.orders TO service_role;
 GRANT ALL ON TABLE public.payments TO service_role;
 GRANT ALL ON TABLE public.subscriptions TO service_role;
+-- Process expired subscriptions function
+CREATE OR REPLACE FUNCTION public.process_expired_subscriptions()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  sub_record RECORD;
+  expired_count INTEGER := 0;
+BEGIN
+  FOR sub_record IN
+    SELECT s.id, s.user_id
+    FROM public.subscriptions s
+    WHERE s.status = 'active'
+      AND s.plan_type != 'lifetime'
+      AND s.ends_at IS NOT NULL
+      AND s.ends_at < now()
+  LOOP
+    UPDATE public.subscriptions
+    SET status = 'expired', updated_at = now()
+    WHERE id = sub_record.id;
+    
+    UPDATE public.profiles
+    SET is_pro = false, subscription_status = 'expired', updated_at = now()
+    WHERE id = sub_record.user_id;
+    
+    expired_count := expired_count + 1;
+  END LOOP;
+  
+  RETURN expired_count;
+END;
+$$;
 
--- Grant access to sequences
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+CREATE OR REPLACE FUNCTION public.activate_subscription(
+  p_user_id UUID,
+  p_plan_type TEXT,
+  p_order_id UUID
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_ends_at TIMESTAMPTZ;
+  v_subscription_id UUID;
+BEGIN
+  CASE p_plan_type
+    WHEN 'monthly' THEN v_ends_at := now() + INTERVAL '1 month';
+    WHEN 'yearly' THEN v_ends_at := now() + INTERVAL '1 year';
+    WHEN 'lifetime' THEN v_ends_at := NULL;
+    ELSE RAISE EXCEPTION 'Invalid plan type: %', p_plan_type;
+  END CASE;
+  
+  UPDATE public.subscriptions
+  SET status = 'expired', updated_at = now()
+  WHERE user_id = p_user_id AND status = 'active';
+  
+  INSERT INTO public.subscriptions (user_id, plan_type, status, starts_at, ends_at, order_id)
+  VALUES (p_user_id, p_plan_type, 'active', now(), v_ends_at, p_order_id)
+  RETURNING id INTO v_subscription_id;
+  
+  UPDATE public.profiles
+  SET is_pro = true, subscription_status = 'pro', updated_at = now()
+  WHERE id = p_user_id;
+  
+  RETURN v_subscription_id;
+END;
+$$;
 
--- Force refresh schema cache by notifying
-NOTIFY pgrst, 'reload schema';
+CREATE OR REPLACE FUNCTION public.get_subscription_status(p_user_id UUID)
+RETURNS TABLE (
+  is_active BOOLEAN,
+  plan_type TEXT,
+  ends_at TIMESTAMPTZ,
+  days_remaining INTEGER
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    s.status = 'active' AS is_active,
+    s.plan_type,
+    s.ends_at,
+    CASE 
+      WHEN s.ends_at IS NULL THEN NULL
+      WHEN s.ends_at > now() THEN EXTRACT(DAY FROM (s.ends_at - now()))::INTEGER
+      ELSE 0
+    END AS days_remaining
+  FROM public.subscriptions s
+  WHERE s.user_id = p_user_id
+    AND s.status = 'active'
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+  
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false, 'free'::TEXT, NULL::TIMESTAMPTZ, 0;
+  END IF;
+END;
+$$;
 
--- ============================================
--- DONE! All tables and functions are ready.
--- ============================================
-
--- ============================================
--- STEP 10: PRICING MANAGEMENT SCHEMA
--- ============================================
-
--- 10a. Create pricing_plans table
+-- Pricing plans table
 CREATE TABLE IF NOT EXISTS public.pricing_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -792,47 +918,177 @@ CREATE TABLE IF NOT EXISTS public.pricing_plans (
   currency TEXT DEFAULT 'USD',
   interval TEXT NOT NULL CHECK (interval IN ('monthly', 'yearly', 'lifetime')),
   is_active BOOLEAN DEFAULT true,
-  features JSONB DEFAULT '[]', -- List of feature strings
-  payment_link TEXT, -- Optional external link (Stripe/LemonSqueezy)
+  features JSONB DEFAULT '[]',
+  payment_link TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 10b. Enable RLS
-ALTER TABLE public.pricing_plans ENABLE ROW LEVEL SECURITY;
+-- ============================================
+-- STEP 7: MIGRATION FIXES (Constraint Safety)
+-- ============================================
 
--- 10c. Policies
--- Anyone can view active plans
-DROP POLICY IF EXISTS "Anyone can view active plans" ON public.pricing_plans;
-CREATE POLICY "Anyone can view active plans" ON public.pricing_plans
-  FOR SELECT USING (is_active = true OR public.has_role(auth.uid(), 'admin'));
+-- 10a. Fix subscriptions foreign key (already present)
+DO $$
+BEGIN
+  -- Check if the constraint exists
+  BEGIN
+    ALTER TABLE public.subscriptions DROP CONSTRAINT IF EXISTS subscriptions_user_id_fkey;
+  END;
 
--- Only admins can manage plans
-DROP POLICY IF EXISTS "Admins can manage plans" ON public.pricing_plans;
-CREATE POLICY "Admins can manage plans" ON public.pricing_plans
-  FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+  -- Add the correct constraint
+  BEGIN
+    ALTER TABLE public.subscriptions
+    ADD CONSTRAINT subscriptions_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+    ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN null;
+  END;
+END $$;
 
--- 10d. Indexes
-CREATE INDEX IF NOT EXISTS idx_pricing_plans_active ON public.pricing_plans(is_active);
+-- 10b. Fix Payments FK (Link to profiles instead of auth.users)
+DO $$
+BEGIN
+  BEGIN
+      ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_user_id_fkey;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
 
--- 10e. Seed Data
-INSERT INTO public.pricing_plans (name, description, price_cents, interval, features)
-SELECT 'Pro Monthly', 'Perfect for focused individuals', 900, 'monthly', '["Unlimited Focus Time", "Advanced Analytics", "Custom Themes"]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM public.pricing_plans WHERE name = 'Pro Monthly');
+  ALTER TABLE public.payments
+  ADD CONSTRAINT payments_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+  ON DELETE CASCADE;
+END $$;
 
-INSERT INTO public.pricing_plans (name, description, price_cents, interval, features)
-SELECT 'Pro Yearly', 'Best value for long-term focus', 9000, 'yearly', '["All Pro Features", "2 Months Free", "Priority Support"]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM public.pricing_plans WHERE name = 'Pro Yearly');
+-- 10c. Fix Orders FK (Link to profiles instead of auth.users)
+DO $$
+BEGIN
+  BEGIN
+      ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_user_id_fkey;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
 
-INSERT INTO public.pricing_plans (name, description, price_cents, interval, features)
-SELECT 'Lifetime', 'One-time payment forever', 29900, 'lifetime', '["All Future Updates", "Founder Badge", "Vibrational Energy"]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM public.pricing_plans WHERE name = 'Lifetime');
+  ALTER TABLE public.orders
+  ADD CONSTRAINT orders_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+  ON DELETE CASCADE;
+END $$;
 
--- 10f. Permissions
-GRANT SELECT ON TABLE public.pricing_plans TO anon, authenticated;
-GRANT ALL ON TABLE public.pricing_plans TO service_role;
-GRANT INSERT, UPDATE, DELETE ON TABLE public.pricing_plans TO authenticated;
+-- ============================================
+-- STEP 8: GRANT PERMISSIONS (Re-runnable)
+-- ============================================
 
--- Force refresh schema cache by notifying
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+GRANT SELECT ON TABLE public.user_roles TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.profiles TO authenticated;
+GRANT ALL ON TABLE public.profiles TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.sessions TO authenticated;
+GRANT ALL ON TABLE public.sessions TO service_role;
+GRANT SELECT, INSERT ON TABLE public.user_analytics TO authenticated;
+GRANT INSERT ON TABLE public.user_analytics TO anon;
+GRANT ALL ON TABLE public.user_analytics TO service_role;
+
+GRANT SELECT, INSERT, UPDATE ON TABLE public.onboarding_preferences TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.user_preferences TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.user_settings TO authenticated;
+GRANT ALL ON TABLE public.onboarding_preferences TO service_role;
+GRANT ALL ON TABLE public.user_preferences TO service_role;
+GRANT ALL ON TABLE public.user_settings TO service_role;
+
+GRANT SELECT, INSERT, UPDATE ON TABLE public.user_streaks TO authenticated;
+GRANT ALL ON TABLE public.user_streaks TO service_role;
+
+GRANT SELECT, INSERT ON TABLE public.user_feedback TO authenticated;
+GRANT ALL ON TABLE public.user_feedback TO service_role;
+
+GRANT SELECT, INSERT, UPDATE ON TABLE public.orders TO authenticated;
+GRANT SELECT ON TABLE public.payments TO authenticated;
+GRANT SELECT ON TABLE public.subscriptions TO authenticated;
+GRANT SELECT, INSERT ON TABLE public.chat_messages TO authenticated;
+GRANT ALL ON TABLE public.orders TO service_role;
+GRANT ALL ON TABLE public.payments TO service_role;
+GRANT ALL ON TABLE public.subscriptions TO service_role;
+GRANT ALL ON TABLE public.chat_messages TO service_role;
+
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
+
 NOTIFY pgrst, 'reload schema';
+-- ============================================
+-- STEP 9: LEADERBOARD FUNCTION (Security Definer)
+-- ============================================
 
+CREATE OR REPLACE FUNCTION public.get_leaderboard()
+RETURNS TABLE (
+  id UUID,
+  email TEXT,
+  display_name TEXT,
+  avatar_url TEXT,
+  is_pro BOOLEAN,
+  current_streak INTEGER,
+  total_minutes BIGINT,
+  total_sessions BIGINT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    p.id,
+    p.email,
+    p.display_name,
+    p.avatar_url,
+    p.is_pro,
+    COALESCE(us.current_streak, 0) as current_streak,
+    COALESCE(SUM(s.duration_minutes), 0)::BIGINT as total_minutes,
+    COUNT(s.id)::BIGINT as total_sessions
+  FROM public.profiles p
+  LEFT JOIN public.user_streaks us ON p.id = us.user_id
+  LEFT JOIN public.sessions s ON p.id = s.user_id AND s.completed_at IS NOT NULL
+  GROUP BY p.id, p.email, p.display_name, p.avatar_url, p.is_pro, us.current_streak
+  HAVING COALESCE(SUM(s.duration_minutes), 0) > 0
+  ORDER BY total_minutes DESC
+  LIMIT 50;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_leaderboard() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_leaderboard() TO anon;
+GRANT EXECUTE ON FUNCTION public.get_leaderboard() TO service_role;
+
+-- ============================================
+-- STEP 11: USER PREFERENCES POLICIES (Fix)
+-- ============================================
+
+-- Enable RLS (idempotent)
+ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Users can view own preferences" ON public.user_preferences;
+DROP POLICY IF EXISTS "Users can insert own preferences" ON public.user_preferences;
+DROP POLICY IF EXISTS "Users can update own preferences" ON public.user_preferences;
+
+-- Create Policies
+CREATE POLICY "Users can view own preferences" ON public.user_preferences
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own preferences" ON public.user_preferences
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own preferences" ON public.user_preferences
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- Ensure grants are correct
+GRANT SELECT, INSERT, UPDATE ON TABLE public.user_preferences TO authenticated;
+GRANT ALL ON TABLE public.user_preferences TO service_role;
+
+-- ============================================
+-- STEP 10: REALTIME PUBLICATION
+-- ============================================
+
+-- Enable Realtime for Chat
+DROP PUBLICATION IF EXISTS supabase_realtime;
+CREATE PUBLICATION supabase_realtime FOR TABLE chat_messages;

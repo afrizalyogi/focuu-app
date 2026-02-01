@@ -31,15 +31,14 @@ export const useSessionTimer = ({
 }: UseSessionTimerOptions) => {
   const STORAGE_KEY = "focuu_session_state";
 
-  const getSessionLength = () => {
-    if (energyMode === "custom") return customMinutes;
-    return ENERGY_CONFIGS[energyMode].sessionLength;
-  };
-
-  const getBreakLength = () => {
-    if (energyMode === "custom") return customBreakMinutes;
-    return ENERGY_CONFIGS[energyMode].breakLength;
-  };
+  const sessionLength =
+    energyMode === "custom"
+      ? customMinutes
+      : ENERGY_CONFIGS[energyMode].sessionLength;
+  const breakLength =
+    energyMode === "custom"
+      ? customBreakMinutes
+      : ENERGY_CONFIGS[energyMode].breakLength;
 
   const getConfig = (): SessionConfig => {
     if (energyMode === "custom") {
@@ -48,7 +47,6 @@ export const useSessionTimer = ({
     return ENERGY_CONFIGS[energyMode];
   };
 
-  const sessionLength = getSessionLength();
   const totalSeconds = sessionLength * 60;
 
   // -- LAZY STATE INITIALIZATION --
@@ -60,17 +58,38 @@ export const useSessionTimer = ({
     if (!saved) return null;
     try {
       const parsed = JSON.parse(saved);
-      // Stale check (2 hours)
+      // Stale check (24 hours - increased from 2h to allow returning next day if reasonable)
       const lastUpdated = new Date(parsed.lastUpdated).getTime();
       const now = new Date().getTime();
-      if (now - lastUpdated > 2 * 60 * 60 * 1000) {
+
+      // If stale (> 12 hours), clear it
+      if (now - lastUpdated > 12 * 60 * 60 * 1000) {
         localStorage.removeItem(STORAGE_KEY);
         return null;
       }
-      // Config matching check (simple)
+
+      // Config matching check
       if (parsed.timerType !== timerType) {
         return null;
       }
+
+      // -- DELTA CALCULATION --
+      // If it was running, calculate how much time passed
+      if (parsed.isRunning) {
+        const deltaSeconds = Math.floor((now - lastUpdated) / 1000);
+
+        if (deltaSeconds > 0) {
+          if (parsed.timerType === "countdown") {
+            parsed.time = Math.max(0, parsed.time - deltaSeconds);
+            // If time ran out while away
+          } else {
+            parsed.time = parsed.time + deltaSeconds;
+          }
+          // Also update elapsed
+          parsed.elapsedSeconds = (parsed.elapsedSeconds || 0) + deltaSeconds;
+        }
+      }
+
       return parsed;
     } catch (e) {
       console.error("Failed to parse session state", e);
@@ -85,10 +104,14 @@ export const useSessionTimer = ({
     return timerType === "countdown" ? totalSeconds : 0;
   });
 
-  // 2. IsRunning
+  // 2. IsRunning (If restored and time > 0, keep running. If countdown reached 0, stop)
   const [isRunning, setIsRunning] = useState(() => {
     const saved = getSavedState();
-    return saved ? saved.isRunning : false;
+    if (saved) {
+      if (saved.timerType === "countdown" && saved.time <= 0) return false;
+      return saved.isRunning;
+    }
+    return false;
   });
 
   // 3. StartTime
@@ -98,14 +121,7 @@ export const useSessionTimer = ({
   });
 
   // 4. ElapsedSeconds (Ref)
-  const elapsedSecondsRef = useRef(() => {
-    const saved = getSavedState();
-    return saved ? saved.elapsedSeconds : 0;
-  });
-  // Fix: useRef initializer is only called once, but the return value is the ref object,
-  // we need to set .current manually if we want a function to init.
-  // Actually React useRef doesn't accept a function initializer like useState.
-  // So we function-call it here manually for the initial value.
+  // Initialize from saved state (which includes delta)
   const initElapsed = (() => {
     const saved = getSavedState();
     return saved ? saved.elapsedSeconds : 0;
@@ -133,26 +149,34 @@ export const useSessionTimer = ({
       return;
     }
 
-    // Normal behavior for subsequent updates OR first render without saved state
+    // Identify if the configuration actually CHANGED from what's in state?
+    // We only want to reset if the user EXPLICITLY changed the mode/minutes.
+    // If we're just mounting, we don't want to reset if restored.
+
+    // If we are already mounted (user interaction), proceed with reset.
+    if (isMountedRef.current) {
+      if (timerType === "countdown") {
+        const newTotal = sessionLength * 60;
+        setTime(newTotal);
+      } else {
+        setTime(0);
+        elapsedSecondsRefActual.current = 0;
+      }
+      setIsComplete(false);
+      setIsRunning(false); // Stop on config change
+      setStartTime(null);
+    }
+
     isMountedRef.current = true;
 
-    if (timerType === "countdown") {
-      const newTotal = getSessionLength() * 60;
-      setTime(newTotal);
-    } else {
-      setTime(0);
-      elapsedSecondsRefActual.current = 0;
+    // Check if we restored a finished session (only on first mount really, but handled above)
+    const saved = getSavedState();
+    if (saved && saved.timerType === "countdown" && saved.time <= 0) {
+      setIsComplete(true);
+      setIsRunning(false);
+      if (onSessionEnd) onSessionEnd();
     }
-    setIsComplete(false);
-    // If we are resetting, we should probably clear storage too?
-    // Usually yes, changing mode implies new session.
-    // However, if the user just refreshed, we want to KEEP the storage (handled by the guard above).
-    // If the user *explicitly* changes mode in UI, this effect runs and we want to reset.
-    if (isMountedRef.current) {
-      // If it's a real change (not mount), we might want to clear storage?
-      // Let's rely on the 'Save' effect to update storage with new values (0/false).
-    }
-  }, [energyMode, timerType, customMinutes, getSessionLength]); // Added getSessionLength dep
+  }, [energyMode, timerType, customMinutes, sessionLength, onSessionEnd]); // Added sessionLength & onSessionEnd dep
 
   // Timer Interval
   useEffect(() => {
@@ -230,7 +254,7 @@ export const useSessionTimer = ({
 
   const reset = useCallback(() => {
     if (timerType === "countdown") {
-      setTime(getSessionLength() * 60);
+      setTime(sessionLength * 60);
     } else {
       setTime(0);
       elapsedSecondsRefActual.current = 0;
@@ -241,7 +265,7 @@ export const useSessionTimer = ({
     localStorage.removeItem(STORAGE_KEY);
     // Reset the restored flag so future logical resets work fine
     restoredStateRef.current = false;
-  }, [energyMode, customMinutes, timerType, getSessionLength]);
+  }, [energyMode, customMinutes, timerType, sessionLength]);
 
   const extend = useCallback(
     (minutes: number) => {
@@ -255,18 +279,17 @@ export const useSessionTimer = ({
   );
 
   const startBreak = useCallback(() => {
-    const breakLength = getBreakLength();
     setTime(breakLength * 60);
     setIsComplete(false);
     setIsRunning(true);
-  }, [energyMode, customBreakMinutes, getBreakLength]);
+  }, [energyMode, customBreakMinutes, breakLength]);
 
   const startNewSession = useCallback(() => {
-    setTime(getSessionLength() * 60);
+    setTime(sessionLength * 60);
     setIsComplete(false);
     setIsRunning(true);
     setStartTime(new Date());
-  }, [energyMode, customMinutes, getSessionLength]);
+  }, [energyMode, customMinutes, sessionLength]);
 
   const formatTime = useCallback((seconds: number) => {
     const hrs = Math.floor(seconds / 3600);

@@ -7,56 +7,74 @@ import { cn } from "@/lib/utils";
 interface BackgroundInputProps {
   imageUrl: string;
   videoUrl: string;
-  onImageChange: (url: string) => void;
-  onVideoChange: (url: string) => void;
+  onImageChange: (url: string) => Promise<void> | void;
+  onVideoChange: (url: string) => Promise<void> | void;
   isPro: boolean;
   onUpgradeClick?: () => void;
 }
 
-const BackgroundInput = ({ 
-  imageUrl, 
-  videoUrl, 
-  onImageChange, 
-  onVideoChange, 
+const BackgroundInput = ({
+  imageUrl,
+  videoUrl,
+  onImageChange,
+  onVideoChange,
   isPro,
-  onUpgradeClick 
+  onUpgradeClick,
 }: BackgroundInputProps) => {
   const [mode, setMode] = useState<"image" | "video" | null>(null);
   const [inputType, setInputType] = useState<"url" | "file">("url");
   const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentValue = mode === "video" ? videoUrl : imageUrl;
   const hasBackground = imageUrl || videoUrl;
 
-  const handleSubmit = () => {
-    if (mode === "image") {
-      onImageChange(inputValue);
-      onVideoChange("");
-    } else if (mode === "video") {
-      onVideoChange(inputValue);
-      onImageChange("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    setIsSaving(true);
+    try {
+      if (mode === "image") {
+        await onImageChange(inputValue);
+      } else if (mode === "video") {
+        await onVideoChange(inputValue);
+      }
+      setMode(null);
+      setInputValue("");
+    } catch (e) {
+      console.error("Failed to save background", e);
+    } finally {
+      setIsSaving(false);
     }
-    setMode(null);
-    setInputValue("");
   };
 
-  const handleClear = () => {
-    onImageChange("");
-    onVideoChange("");
-    setMode(null);
-    setInputValue("");
+  const handleClear = async () => {
+    setIsSaving(true);
+    try {
+      await onImageChange("");
+      await onVideoChange("");
+      setMode(null);
+      setInputValue("");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsLoading(true);
     // Convert to base64 data URL for preview
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setInputValue(dataUrl);
+      setIsLoading(false);
+    };
+    reader.onerror = () => {
+      setIsLoading(false);
     };
     reader.readAsDataURL(file);
   };
@@ -83,9 +101,9 @@ const BackgroundInput = ({
             <Image className="w-4 h-4 text-primary" />
           )}
           <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-            {(videoUrl || imageUrl).startsWith("data:") 
-              ? "Uploaded file" 
-              : (videoUrl || imageUrl)}
+            {(videoUrl || imageUrl).startsWith("data:")
+              ? "Uploaded file"
+              : videoUrl || imageUrl}
           </span>
           <button
             onClick={() => {
@@ -103,13 +121,13 @@ const BackgroundInput = ({
             <X className="w-3 h-3 text-muted-foreground" />
           </button>
         </div>
-        
+
         {/* Preview */}
         {imageUrl && (
           <div className="relative w-full h-24 rounded-lg overflow-hidden border border-border/30">
-            <img 
-              src={imageUrl} 
-              alt="Background preview" 
+            <img
+              src={imageUrl}
+              alt="Background preview"
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
@@ -119,8 +137,8 @@ const BackgroundInput = ({
         )}
         {videoUrl && (
           <div className="relative w-full h-24 rounded-lg overflow-hidden border border-border/30">
-            <video 
-              src={videoUrl} 
+            <video
+              src={videoUrl}
               muted
               loop
               autoPlay
@@ -170,14 +188,16 @@ const BackgroundInput = ({
             Add {mode === "video" ? "video" : "image"} background
           </span>
         </div>
-        
+
         {/* Toggle between URL and file */}
         <div className="flex gap-1 p-1 rounded-lg bg-secondary/30">
           <button
             onClick={() => setInputType("url")}
             className={cn(
               "px-2 py-1 text-xs rounded transition-colors",
-              inputType === "url" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+              inputType === "url"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground",
             )}
           >
             <Link className="w-3 h-3" />
@@ -186,18 +206,24 @@ const BackgroundInput = ({
             onClick={() => setInputType("file")}
             className={cn(
               "px-2 py-1 text-xs rounded transition-colors",
-              inputType === "file" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+              inputType === "file"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground",
             )}
           >
             <Upload className="w-3 h-3" />
           </button>
         </div>
       </div>
-      
+
       {inputType === "url" ? (
         <Input
           type="url"
-          placeholder={mode === "video" ? "Video URL (MP4, WebM)" : "Image URL (JPG, PNG, GIF)"}
+          placeholder={
+            mode === "video"
+              ? "Video URL (MP4, WebM, YouTube)"
+              : "Image URL (JPG, PNG, GIF)"
+          }
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           className="bg-secondary/50 border-border/50"
@@ -213,39 +239,63 @@ const BackgroundInput = ({
           />
           <button
             onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
             className="w-full p-4 rounded-xl border-2 border-dashed border-border/50 hover:border-primary/50 transition-colors flex flex-col items-center gap-2"
           >
-            <Upload className="w-5 h-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              {inputValue ? "File selected" : `Upload ${mode}`}
-            </span>
+            {isLoading ? (
+              <div className="flex flex-col items-center gap-2 animate-pulse">
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-primary">Processing file...</span>
+              </div>
+            ) : (
+              <>
+                <Upload className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {inputValue
+                    ? "File selected (Click to change)"
+                    : `Upload ${mode}`}
+                </span>
+              </>
+            )}
           </button>
         </div>
       )}
-      
+
       {/* Preview when file/url is selected */}
       {inputValue && (
         <div className="relative w-full h-20 rounded-lg overflow-hidden border border-border/30">
           {mode === "image" ? (
-            <img src={inputValue} alt="Preview" className="w-full h-full object-cover" />
+            <img
+              src={inputValue}
+              alt="Preview"
+              className="w-full h-full object-cover"
+            />
           ) : (
-            <video src={inputValue} muted autoPlay loop playsInline className="w-full h-full object-cover" />
+            <video
+              src={inputValue}
+              muted
+              autoPlay
+              loop
+              playsInline
+              className="w-full h-full object-cover"
+            />
           )}
           <div className="absolute inset-0 bg-background/40" />
         </div>
       )}
-      
+
       <div className="flex items-center gap-2">
         <Button
           size="sm"
           onClick={handleSubmit}
-          disabled={!inputValue.trim()}
+          disabled={!inputValue.trim() || isSaving}
         >
-          Set background
+          {isSaving ? "Saving..." : "Set background"}
         </Button>
         <Button
           size="sm"
           variant="ghost"
+          disabled={isSaving}
           onClick={() => {
             setMode(null);
             setInputValue("");
@@ -255,9 +305,9 @@ const BackgroundInput = ({
           Cancel
         </Button>
       </div>
-      
+
       <p className="text-xs text-muted-foreground/60">
-        {inputType === "url" 
+        {inputType === "url"
           ? "Use a direct link to an image or video file"
           : "Upload from your device (stored locally)"}
       </p>

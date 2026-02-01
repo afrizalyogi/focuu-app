@@ -96,7 +96,7 @@ const PricingManagement = () => {
         variant: "destructive",
       });
     } else {
-      setPlans((data as any) || []);
+      setPlans((data as PricingPlan[]) || []);
     }
     setLoading(false);
   };
@@ -219,9 +219,9 @@ const PricingManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row gap-2 text-center md:text-left items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Pricing Plans</h2>
+          <h2 className="text-xl font-semibold mb-2">Pricing Plans</h2>
           <p className="text-sm text-muted-foreground">
             Manage subscription packages and pricing
           </p>
@@ -290,7 +290,7 @@ const PricingManagement = () => {
                   </label>
                   <Select
                     value={formData.interval}
-                    onValueChange={(val: any) =>
+                    onValueChange={(val: PricingPlan["interval"]) =>
                       setFormData({ ...formData, interval: val })
                     }
                   >

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -39,6 +40,7 @@ import BackgroundInput from "@/components/work/BackgroundInput";
 import CustomBackground from "@/components/work/CustomBackground";
 import FullscreenButton from "@/components/work/FullscreenButton";
 import EnvironmentDock from "@/components/work/EnvironmentDock";
+import WorkTutorial from "@/components/work/WorkTutorial";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Crown,
@@ -50,9 +52,94 @@ import {
   Coffee,
   Maximize,
 } from "lucide-react";
+import BackButton from "@/components/common/BackButton";
 import { getOnboardingData } from "./Onboarding";
+import { useLiveChat } from "@/hooks/useLiveChat";
+import ChatNotificationBubble from "@/components/work/ChatNotificationBubble";
+import DocumentPiPButton from "@/components/work/DocumentPiPButton";
+import SessionRatingDialog from "@/components/work/SessionRatingDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 type SessionPhase = "setup" | "working" | "closure";
+
+// Extracted header component for cleaner code
+interface WorkHeaderProps {
+  user: any;
+  profile: any;
+  isPro: boolean;
+  presenceCount: number;
+  onBack: () => void;
+  backLabel: string;
+  getUserInitials: () => string;
+  isWorking: boolean;
+}
+
+const WorkHeader = ({
+  user,
+  isPro,
+  presenceCount,
+  onBack,
+  backLabel,
+  getUserInitials,
+  isWorking,
+}: WorkHeaderProps) => {
+  const navigate = useNavigate();
+
+  return (
+    <header className="relative z-10 max-w-6xl mx-auto w-full flex items-center justify-between px-4 py-4 md:py-6">
+      <BackButton onClick={onBack} label={backLabel.replace("← ", "")} />
+
+      {/* Center PresenceDisplay during work mode */}
+      {isWorking && (
+        <div className="hidden md:absolute md:block left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <PresenceDisplay count={presenceCount} />
+        </div>
+      )}
+
+      <div className="flex items-center gap-4">
+        {!isWorking && (
+          <>
+            <div className="hidden md:absolute md:block left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <PresenceDisplay count={presenceCount} />
+            </div>
+            {user && (
+              <button
+                onClick={() => navigate("/app")}
+                className="flex items-center gap-2 group"
+              >
+                <Avatar className="h-8 w-8 border-2 border-primary/20 group-hover:border-primary/50 transition-calm">
+                  {user?.user_metadata?.avatar_url ||
+                  (user as any)?.avatar_url ? (
+                    <img
+                      src={
+                        user?.user_metadata?.avatar_url ||
+                        (user as any)?.avatar_url
+                      }
+                      alt="User"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                      {getUserInitials()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                {isPro && <Crown className="w-4 h-4 text-primary" />}
+              </button>
+            )}
+
+            <button
+              onClick={() => navigate("/app/settings")}
+              className="p-2 text-muted-foreground hover:text-foreground transition-calm"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </>
+        )}
+      </div>
+    </header>
+  );
+};
 
 const Work = () => {
   const navigate = useNavigate();
@@ -61,7 +148,8 @@ const Work = () => {
   console.log("Rendering Work Page");
   const presenceCount = usePresenceCount();
   const { startTracking, stopTracking } = useWorkingPresence();
-  const { recordSession, getTotalStats, sessions } = useSessionHistory();
+  const { recordSession, getTotalStats, sessions, upsertSession } =
+    useSessionHistory();
   const { settings, isWithinWorkHours } = useSettings();
   const { profile, user } = useAuth();
   const { streak: currentStreak } = useStreak();
@@ -90,13 +178,82 @@ const Work = () => {
   const [onboardingApplied, setOnboardingApplied] = useState(false);
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [onboardingData, setOnboardingData] = useState<any>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
   const sessionStartRef = useRef<Date | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isChatNotificationsEnabled, setIsChatNotificationsEnabled] =
+    useState(true);
+
+  // Global Chat State
+  const [activeDockSheet, setActiveDockSheet] = useState<string | null>(null);
+  const {
+    messages: chatMessages,
+    sendMessage: sendChatMessage,
+    isLoading: isChatLoading,
+    latestMessage: latestChatMessage,
+    clearNotification: clearChatNotification,
+  } = useLiveChat(true); // Always enabled, but access controlled by Pro flag in UI
+
+  // Clear notifications when chat is opened
+  useEffect(() => {
+    if (activeDockSheet === "chat") {
+      clearChatNotification();
+    }
+  }, [activeDockSheet, clearChatNotification]);
 
   // Use trial access for Pro features
   const isPro = hasProAccess;
   const isGuest = !user;
   const outsideHours =
     isPro && settings.workHoursEnabled && !isWithinWorkHours();
+
+  // Check tutorial status
+  useEffect(() => {
+    // If guest, use localStorage
+    if (!user) {
+      const hasSeenTutorial = localStorage.getItem("focuu_work_tutorial_seen");
+      if (!hasSeenTutorial) {
+        setShowTutorial(true);
+      }
+      return;
+    }
+
+    // If logged in, check DB directly to avoid stale state
+    const checkTutorialStatus = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("is_tutorial_seen")
+          .eq("id", user.id)
+          .single();
+
+        // Only show if explicitly false
+        if (data && data.is_tutorial_seen === false) {
+          setShowTutorial(true);
+        }
+      }
+    };
+
+    checkTutorialStatus();
+  }, [user]);
+
+  const [showRating, setShowRating] = useState(false);
+
+  const handleTutorialComplete = async () => {
+    setShowTutorial(false);
+    localStorage.setItem("focuu_work_tutorial_seen", "true");
+
+    if (user) {
+      try {
+        await supabase
+          .from("profiles")
+          .update({ is_tutorial_seen: true } as any)
+          .eq("id", user.id);
+      } catch (e) {
+        console.error("Failed to update tutorial status", e);
+      }
+    }
+  };
 
   // Apply onboarding data when coming from onboarding
   useEffect(() => {
@@ -130,20 +287,14 @@ const Work = () => {
       }
     }
     setOnboardingApplied(true);
-  }, [location.state, onboardingApplied]);
+  }, [location.state, onboardingApplied]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore phase based on timer state
   useEffect(() => {
-    // If timer is running or has time > 0 (and not default max), implies active session
-    // We check saved state directly or infer from hook state if already loaded
-    // Note: useSessionTimer loads from storage on mount.
-    // We need to wait for it to load? actually useSessionTimer state is initialized lazily in its own useEffect
-    // But here, we can just check if time != default or isRunning is true
     const savedState = localStorage.getItem("focuu_session_state");
     if (savedState) {
       try {
         const parsed = JSON.parse(savedState);
-        // If persisted state says running or previously worked
         if (
           parsed.isRunning ||
           (parsed.time > 0 && parsed.timerType === "stopwatch") ||
@@ -158,7 +309,7 @@ const Work = () => {
         // ignore
       }
     }
-  }, []); // Run once on mount
+  }, []);
 
   const applyOnboardingSettings = (data: any) => {
     // Map session length to energy mode
@@ -179,6 +330,7 @@ const Work = () => {
           id: Date.now().toString(),
           text: data.initialTask,
           category: "deep" as const,
+          priority: "high",
           isActive: true,
         },
       ]);
@@ -244,27 +396,49 @@ const Work = () => {
     } else {
       resume();
     }
+    setPhase("working");
   };
 
-  // Record session and stop - works for both timer types
-  const handleStop = () => {
-    // Always record the session with actual time worked
-    const elapsedMinutes = getElapsedMinutes();
-    if (elapsedMinutes > 0) {
-      recordSession(energyMode, activeTask?.text || null, elapsedMinutes);
+  const handleStop = async () => {
+    // Only save if we actually worked > 10 seconds?
+    const elapsedSeconds = getElapsedMinutes() * 60; // Calculate elapsed seconds
+    if (elapsedSeconds > 10) {
+      // Final save
+      const durationMinutes = Math.floor(getElapsedMinutes()); // Use getElapsedMinutes()
+
+      if (sessionId && upsertSession) {
+        await upsertSession({
+          id: sessionId,
+          date: new Date().toISOString().split("T")[0],
+          energyMode,
+          intent: activeTask?.text || null,
+          durationMinutes: Math.floor(getElapsedMinutes()),
+          completedAt: new Date().toISOString(),
+        });
+      }
+
+      recordSession(
+        energyMode,
+        activeTask?.text || null,
+        Math.floor(getElapsedMinutes()),
+        timerMode,
+      );
       trackSessionEnd({
         energyMode,
         timerMode,
-        durationMinutes: elapsedMinutes,
+        durationMinutes: durationMinutes,
       });
+
+      // Show rating if session was meaningful
+      if (durationMinutes >= 15 || (isPro && durationMinutes >= 1)) {
+        setShowRating(true);
+      }
     }
 
-    reset();
-    stopTracking();
-    setPhase("setup");
     setNotes("");
     setIsOnBreak(false);
     sessionStartRef.current = null;
+    setSessionId(null); // Clear ID
   };
 
   const handleContinue = () => {
@@ -303,6 +477,7 @@ const Work = () => {
         <GlassOrbs />
         <WorkHeader
           user={user}
+          profile={profile}
           isPro={isPro}
           presenceCount={presenceCount}
           onBack={handleStop}
@@ -329,7 +504,7 @@ const Work = () => {
   return (
     <div
       className={cn(
-        "min-h-screen flex flex-col transition-colors duration-500",
+        "relative min-h-[100dvh] w-full flex flex-col transition-colors duration-500 overflow-hidden",
         !preferences.backgroundUrl || preferences.backgroundType === "none"
           ? "bg-background"
           : "bg-transparent",
@@ -358,6 +533,7 @@ const Work = () => {
       {/* Minimal floating header */}
       <WorkHeader
         user={user}
+        profile={profile}
         isPro={isPro}
         presenceCount={presenceCount}
         onBack={phase === "setup" ? () => navigate("/app") : handleStop}
@@ -399,7 +575,10 @@ const Work = () => {
                   )}
 
                   {/* Timer Mode Selection */}
-                  <div className="flex justify-center mb-6">
+                  <div
+                    id="work-timer-mode"
+                    className="flex justify-center mb-6"
+                  >
                     <TimerModeSelector
                       selected={timerMode}
                       onSelect={setTimerMode}
@@ -411,7 +590,7 @@ const Work = () => {
                     <input
                       type="text"
                       placeholder="What's your main focus?"
-                      className="w-full bg-transparent border-b-2 border-border/50 text-center text-xl md:text-2xl font-medium placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-all py-2"
+                      className="w-full bg-transparent border-b-2 border-border/50 text-center text-lg md:text-2xl font-medium placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-all py-2"
                       value={tasks[0]?.text || ""}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -423,6 +602,7 @@ const Work = () => {
                                 id: Date.now().toString(),
                                 text: val,
                                 category: "deep",
+                                priority: "high",
                                 isActive: true,
                               },
                             ];
@@ -443,6 +623,7 @@ const Work = () => {
 
                   {/* Start Button */}
                   <Button
+                    id="work-start-button"
                     onClick={handleStart}
                     size="lg"
                     className="px-16 py-8 text-xl font-bold rounded-full shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] transition-all bg-primary text-primary-foreground"
@@ -464,20 +645,6 @@ const Work = () => {
                     </div>
                   )}
                 </div>
-
-                {/* Onboarding Tip / Greeting */}
-                {onboardingData?.toneMode && (
-                  <div className="text-center animate-fade-in">
-                    <p className="text-sm text-muted-foreground bg-card/50 inline-block px-4 py-1.5 rounded-full border border-border/40">
-                      {onboardingData.toneMode === "brutal" &&
-                        "🔥 Mode: Brutal. No excuses."}
-                      {onboardingData.toneMode === "medium" &&
-                        "🧘 Mode: Balanced. Stay steady."}
-                      {onboardingData.toneMode === "affirmative" &&
-                        "✨ Mode: Supportive. You got this."}
-                    </p>
-                  </div>
-                )}
               </div>
             )}
 
@@ -526,17 +693,17 @@ const Work = () => {
                   </div>
 
                   {/* Controls */}
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-4 md:gap-6 mt-6">
                     <Button
                       variant="outline"
                       size="icon"
                       onClick={handlePauseResume}
-                      className="w-16 h-16 rounded-full border-2 border-primary/20 bg-background/50 backdrop-blur-md hover:bg-primary/10 hover:border-primary/50 transition-all"
+                      className="w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-primary/20 bg-background/50 backdrop-blur-md hover:bg-primary/10 hover:border-primary/50 transition-all"
                     >
                       {isRunning ? (
-                        <Pause className="w-8 h-8 text-foreground" />
+                        <Pause className="w-6 h-6 md:w-8 md:h-8 text-foreground" />
                       ) : (
-                        <Play className="w-8 h-8 text-primary ml-1" />
+                        <Play className="w-6 h-6 md:w-8 md:h-8 text-primary ml-1" />
                       )}
                     </Button>
 
@@ -545,10 +712,10 @@ const Work = () => {
                         variant="ghost"
                         size="icon"
                         onClick={handleTakeBreak}
-                        className="w-14 h-14 rounded-full border border-border/30 bg-card/20 hover:bg-card/40 text-muted-foreground hover:text-foreground"
+                        className="w-12 h-12 md:w-14 md:h-14 rounded-full border border-border/30 bg-card/20 hover:bg-card/40 text-muted-foreground hover:text-foreground"
                         title="Take a break"
                       >
-                        <Coffee className="w-6 h-6" />
+                        <Coffee className="w-5 h-5 md:w-6 md:h-6" />
                       </Button>
                     )}
 
@@ -556,12 +723,23 @@ const Work = () => {
                       variant="ghost"
                       size="icon"
                       onClick={handleStop}
-                      className="w-14 h-14 rounded-full border border-border/30 bg-card/20 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-all"
+                      className="w-12 h-12 md:w-14 md:h-14 rounded-full border border-border/30 bg-card/20 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-all"
                     >
-                      <Square className="w-6 h-6" />
+                      <Square className="w-5 h-5 md:w-6 md:h-6" />
                     </Button>
 
-                    <FullscreenButton size="sm" />
+                    <DocumentPiPButton
+                      formattedTime={formattedTime}
+                      isRunning={isRunning}
+                      progress={progress}
+                      timerType={timerType}
+                      isOnBreak={isOnBreak}
+                      activeTaskText={activeTask?.text}
+                      onTogglePause={handlePauseResume}
+                      onStop={handleStop}
+                    />
+
+                    <FullscreenButton />
                   </div>
                 </div>
               </>
@@ -569,6 +747,9 @@ const Work = () => {
           </div>
         )}
       </main>
+
+      {/* Hidden Music Player */}
+      <MusicPlayer url={preferences.musicUrl} />
 
       {/* Environment Dock - Always visible (except closure) */}
       <EnvironmentDock
@@ -578,84 +759,66 @@ const Work = () => {
         setBackgroundUrl={setBackgroundUrl}
         isPro={isPro}
         onUpgradeClick={handleUpgradeClick}
+        tasks={tasks}
+        onAddTask={(text) => {
+          const newTask: Task = {
+            id: crypto.randomUUID(),
+            text,
+            category: "light",
+            priority: "medium",
+            isActive: tasks.length === 0, // Auto-active if first
+          };
+          setTasks([...tasks, newTask]);
+        }}
+        onToggleTask={(id) => {
+          const maxActive = isPro ? 3 : 1;
+          const currentActive = tasks.filter((t) => t.isActive).length;
+          const task = tasks.find((t) => t.id === id);
+          if (!task) return;
+
+          if (task.isActive) {
+            setTasks(
+              tasks.map((t) => (t.id === id ? { ...t, isActive: false } : t)),
+            );
+          } else if (currentActive < maxActive) {
+            setTasks(
+              tasks.map((t) => (t.id === id ? { ...t, isActive: true } : t)),
+            );
+          }
+        }}
+        onRemoveTask={(id) => setTasks(tasks.filter((t) => t.id !== id))}
+        activeSheet={activeDockSheet}
+        onOpenChange={setActiveDockSheet}
+        chatMessages={chatMessages}
+        onSendMessage={sendChatMessage}
+        isChatLoading={isChatLoading}
+        isChatNotificationsEnabled={isChatNotificationsEnabled}
+        onToggleChatNotifications={setIsChatNotificationsEnabled}
       />
+
+      {/* Chat Notification Bubble */}
+      {activeDockSheet !== "chat" && isChatNotificationsEnabled && (
+        <ChatNotificationBubble
+          key={latestChatMessage?.id}
+          message={latestChatMessage}
+          onClear={clearChatNotification}
+          onOpenChat={() => setActiveDockSheet("chat")}
+        />
+      )}
 
       <UpgradePrompt
         open={showUpgradePrompt}
         onOpenChange={setShowUpgradePrompt}
       />
+
+      {showTutorial && <WorkTutorial onComplete={handleTutorialComplete} />}
+
+      <SessionRatingDialog
+        open={showRating}
+        onOpenChange={setShowRating}
+        onComplete={() => setShowRating(false)}
+      />
     </div>
-  );
-};
-
-// Extracted header component for cleaner code
-interface WorkHeaderProps {
-  user: any;
-  isPro: boolean;
-  presenceCount: number;
-  onBack: () => void;
-  backLabel: string;
-  getUserInitials: () => string;
-  isWorking: boolean;
-}
-
-const WorkHeader = ({
-  user,
-  isPro,
-  presenceCount,
-  onBack,
-  backLabel,
-  getUserInitials,
-  isWorking,
-}: WorkHeaderProps) => {
-  const navigate = useNavigate();
-
-  return (
-    <header className="relative z-10 flex items-center justify-between p-4 md:p-6">
-      <button
-        onClick={onBack}
-        className="text-sm text-muted-foreground hover:text-foreground transition-calm"
-      >
-        {backLabel}
-      </button>
-
-      {/* Center PresenceDisplay during work mode */}
-      {isWorking && (
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <PresenceIndicator count={presenceCount} />
-        </div>
-      )}
-
-      <div className="flex items-center gap-4">
-        {/* Only show small indicator if NOT working */}
-        {!isWorking && <PresenceIndicator count={presenceCount} />}
-
-        {!isWorking && (
-          <>
-            {user && (
-              <button
-                onClick={() => navigate("/app")}
-                className="flex items-center gap-2 group"
-              >
-                <Avatar className="h-8 w-8 border-2 border-primary/20 group-hover:border-primary/50 transition-calm">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                    {getUserInitials()}
-                  </AvatarFallback>
-                </Avatar>
-                {isPro && <Crown className="w-4 h-4 text-primary" />}
-              </button>
-            )}
-
-            <button
-              onClick={() => navigate("/app/settings")}
-              className="p-2 text-muted-foreground hover:text-foreground transition-calm"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-          </>
-        )}
-      </div>
-    </header>
   );
 };
 

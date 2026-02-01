@@ -113,7 +113,7 @@ export const ExponentialGrowthSection = () => {
           onMouseEnter={() => setIsAnimated(true)}
         >
           {/* Chart Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border rounded-t-2xl">
+          <div className="flex flex-col lg:flex-row gap-2 items-center justify-between px-4 py-3 border-b border-border rounded-t-2xl">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">
@@ -221,6 +221,7 @@ export const ExponentialGrowthSection = () => {
                   }}
                   itemStyle={{ fontSize: "12px", fontWeight: 500 }}
                   labelStyle={{ color: "#a1a1aa", marginBottom: "4px" }}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(value: any) => [`${value} hours`, "Total Output"]}
                 />
                 <Area

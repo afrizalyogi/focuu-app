@@ -9,7 +9,8 @@ export type TaskCategory = "deep" | "support" | "light";
 export interface Task {
   id: string;
   text: string;
-  category: TaskCategory;
+  category: TaskCategory; // Keeping for backward compatibility/type type
+  priority: "high" | "medium" | "low";
   isActive: boolean;
 }
 
@@ -20,18 +21,23 @@ interface TaskPlannerProps {
   onUpgradeClick: () => void;
 }
 
-const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlannerProps) => {
+const TaskPlanner = ({
+  isPro,
+  tasks,
+  onTasksChange,
+  onUpgradeClick,
+}: TaskPlannerProps) => {
   const [newTaskText, setNewTaskText] = useState("");
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
-  const activeTasks = tasks.filter(t => t.isActive);
-  const inactiveTasks = tasks.filter(t => !t.isActive);
+  const activeTasks = tasks.filter((t) => t.isActive);
+  const inactiveTasks = tasks.filter((t) => !t.isActive);
   const maxActiveTasks = isPro ? 3 : 1;
   const canAddActiveTask = activeTasks.length < maxActiveTasks;
 
   const getNextCategory = (): TaskCategory => {
     if (!isPro) return "deep";
-    const activeCategories = activeTasks.map(t => t.category);
+    const activeCategories = activeTasks.map((t) => t.category);
     if (!activeCategories.includes("deep")) return "deep";
     if (!activeCategories.includes("support")) return "support";
     return "light";
@@ -39,11 +45,12 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
 
   const handleAddTask = () => {
     if (!newTaskText.trim()) return;
-    
+
     const newTask: Task = {
       id: crypto.randomUUID(),
       text: newTaskText.trim(),
       category: getNextCategory(),
+      priority: "medium",
       isActive: canAddActiveTask,
     };
 
@@ -59,13 +66,13 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
   };
 
   const toggleTaskActive = (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
+    const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
     if (task.isActive) {
-      onTasksChange(tasks.map(t => 
-        t.id === taskId ? { ...t, isActive: false } : t
-      ));
+      onTasksChange(
+        tasks.map((t) => (t.id === taskId ? { ...t, isActive: false } : t)),
+      );
     } else {
       if (!canAddActiveTask) {
         if (!isPro) {
@@ -73,24 +80,32 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
         }
         return;
       }
-      onTasksChange(tasks.map(t => 
-        t.id === taskId ? { ...t, isActive: true, category: getNextCategory() } : t
-      ));
+      onTasksChange(
+        tasks.map((t) =>
+          t.id === taskId
+            ? { ...t, isActive: true, category: getNextCategory() }
+            : t,
+        ),
+      );
     }
   };
 
   const removeTask = (taskId: string) => {
-    onTasksChange(tasks.filter(t => t.id !== taskId));
+    onTasksChange(tasks.filter((t) => t.id !== taskId));
   };
 
   const changeCategory = (taskId: string, category: TaskCategory) => {
-    onTasksChange(tasks.map(t => 
-      t.id === taskId ? { ...t, category } : t
-    ));
+    onTasksChange(tasks.map((t) => (t.id === taskId ? { ...t, category } : t)));
+  };
+
+  const handleUpdateTask = (taskId: string, updates: Partial<Task>) => {
+    onTasksChange(
+      tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)),
+    );
   };
 
   const moveTask = (taskId: string, direction: "up" | "down") => {
-    const activeTaskIds = activeTasks.map(t => t.id);
+    const activeTaskIds = activeTasks.map((t) => t.id);
     const currentIndex = activeTaskIds.indexOf(taskId);
     if (currentIndex === -1) return;
 
@@ -99,12 +114,14 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
 
     // Swap positions
     const newActiveTaskIds = [...activeTaskIds];
-    [newActiveTaskIds[currentIndex], newActiveTaskIds[newIndex]] = 
-    [newActiveTaskIds[newIndex], newActiveTaskIds[currentIndex]];
+    [newActiveTaskIds[currentIndex], newActiveTaskIds[newIndex]] = [
+      newActiveTaskIds[newIndex],
+      newActiveTaskIds[currentIndex],
+    ];
 
     // Reorder tasks array
     const reorderedTasks = [
-      ...newActiveTaskIds.map(id => tasks.find(t => t.id === id)!),
+      ...newActiveTaskIds.map((id) => tasks.find((t) => t.id === id)!),
       ...inactiveTasks,
     ];
     onTasksChange(reorderedTasks);
@@ -113,23 +130,23 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedTaskId(taskId);
-    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
   };
 
   const handleDrop = (e: React.DragEvent, targetTaskId: string) => {
     e.preventDefault();
-    
+
     if (!draggedTaskId || draggedTaskId === targetTaskId) {
       setDraggedTaskId(null);
       return;
     }
 
-    const activeTaskIds = activeTasks.map(t => t.id);
+    const activeTaskIds = activeTasks.map((t) => t.id);
     const draggedIndex = activeTaskIds.indexOf(draggedTaskId);
     const targetIndex = activeTaskIds.indexOf(targetTaskId);
 
@@ -144,7 +161,7 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
     newActiveTaskIds.splice(targetIndex, 0, draggedTaskId);
 
     const reorderedTasks = [
-      ...newActiveTaskIds.map(id => tasks.find(t => t.id === id)!),
+      ...newActiveTaskIds.map((id) => tasks.find((t) => t.id === id)!),
       ...inactiveTasks,
     ];
     onTasksChange(reorderedTasks);
@@ -165,11 +182,11 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
               {[...Array(3)].map((_, i) => (
-                <div 
+                <div
                   key={i}
                   className={cn(
                     "w-2 h-2 rounded-full transition-all",
-                    i < activeTasks.length ? "bg-primary" : "bg-border"
+                    i < activeTasks.length ? "bg-primary" : "bg-border",
                   )}
                 />
               ))}
@@ -200,6 +217,7 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
+              onUpdate={handleUpdateTask}
               isFirst={index === 0}
               isLast={index === activeTasks.length - 1}
               isPro={isPro}
@@ -222,13 +240,17 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
       <div className="relative group">
         <Input
           type="text"
-          placeholder={activeTasks.length === 0 ? "Add your main task..." : "Add another task..."}
+          placeholder={
+            activeTasks.length === 0
+              ? "Add your main task..."
+              : "Add another task..."
+          }
           value={newTaskText}
           onChange={(e) => setNewTaskText(e.target.value)}
           onKeyDown={handleKeyDown}
           className={cn(
             "bg-secondary/50 border border-border/50 focus-visible:ring-1 focus-visible:ring-primary pr-12 transition-all",
-            "placeholder:text-muted-foreground/40"
+            "placeholder:text-muted-foreground/40",
           )}
         />
         <button
@@ -236,9 +258,9 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
           disabled={!newTaskText.trim()}
           className={cn(
             "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all",
-            newTaskText.trim() 
-              ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-              : "text-muted-foreground/40"
+            newTaskText.trim()
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "text-muted-foreground/40",
           )}
         >
           <Plus className="w-4 h-4" />
@@ -259,6 +281,7 @@ const TaskPlanner = ({ isPro, tasks, onTasksChange, onUpgradeClick }: TaskPlanne
                 onToggleActive={toggleTaskActive}
                 onRemove={removeTask}
                 onCategoryChange={changeCategory}
+                onUpdate={handleUpdateTask}
                 isPro={isPro}
               />
             ))}

@@ -25,8 +25,8 @@ export const useStreak = () => {
     // Let's iterate.
 
     let currentStreak = 0;
-    let expectedDate = new Date(); // Start checking from Today
-    let expectedStr = expectedDate.toISOString().split("T")[0];
+    const expectedDate = new Date(); // Start checking from Today
+    const expectedStr = expectedDate.toISOString().split("T")[0];
 
     // Optimization: find start index
     // If most recent date is today, start counting.

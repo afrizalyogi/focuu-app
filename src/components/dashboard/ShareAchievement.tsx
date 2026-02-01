@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Share2, Trophy, Download, Flame, Clock } from "lucide-react";
+import { toast } from "sonner";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useStreak } from "@/hooks/useStreak";
 import { useAuth } from "@/contexts/AuthContext";
@@ -140,18 +141,18 @@ const ShareAchievement = () => {
           files: [file],
         });
       } else {
-        handleDownload();
+        toast.error("Sharing not supported on this device/browser");
       }
     } catch (err) {
       console.error("Share failed", err);
-      handleDownload();
+      toast.error("Failed to share image");
     }
   };
 
   return (
     <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between text-lg">
+        <CardTitle className="flex flex-col sm:flex-row items-center sm:justify-between gap-2 text-lg">
           <div className="flex items-center gap-2">
             <Trophy className="w-5 h-5 text-yellow-500" />
             Your Achievement
@@ -167,7 +168,7 @@ const ShareAchievement = () => {
         <div className="flex justify-center mb-6">
           <Tabs
             value={shareMode}
-            onValueChange={(v) => setShareMode(v as any)}
+            onValueChange={(v) => setShareMode(v as "stats" | "streak")}
             className="w-full"
           >
             <TabsList className="grid w-full grid-cols-2">
@@ -204,12 +205,11 @@ const ShareAchievement = () => {
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button
             onClick={handleShare}
             disabled={!hasProAccess}
             className="flex-1 gap-2"
-            variant="outline"
           >
             <Share2 className="w-4 h-4" />
             Share
@@ -217,10 +217,11 @@ const ShareAchievement = () => {
           <Button
             onClick={handleDownload}
             disabled={!hasProAccess}
-            variant="ghost"
-            size="icon"
+            variant="outline"
+            className="gap-2"
           >
             <Download className="w-4 h-4" />
+            <span className="not-sr-only text-xs">Download</span>
           </Button>
         </div>
       </CardContent>

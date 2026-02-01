@@ -14,6 +14,7 @@ import {
   Trophy,
   FlaskConical,
   Star,
+  Download,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePresenceCount } from "@/hooks/usePresenceCount";
@@ -26,6 +27,8 @@ import { PageViewsChart } from "@/components/dashboard/PageViewsChart";
 import RevenueChart from "@/components/dashboard/RevenueChart";
 import TopUsersTable from "@/components/dashboard/TopUsersTable";
 import PricingManagement from "@/components/dashboard/PricingManagement";
+import UniversalTableManager from "@/components/dashboard/UniversalTableManager";
+import { toast } from "sonner";
 
 interface GlobalStats {
   totalUsers: number;
@@ -154,6 +157,89 @@ const AdminDashboard = () => {
   const globalSessions = statsData?.heatmapData || [];
   const loading = isLoadingStats;
 
+  const handleExportFinancials = async () => {
+    try {
+      toast.loading("Generating financial report...");
+      const { data: payments, error } = await supabase
+        .from("payments")
+        .select(
+          `
+          id,
+          created_at,
+          amount_cents,
+          currency,
+          status,
+          payment_provider,
+          user_id,
+          profiles:user_id (email, display_name)
+        `,
+        )
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      if (!payments || payments.length === 0) {
+        toast.dismiss();
+        toast.error("No financial data available to export.");
+        return;
+      }
+
+      // Convert to CSV
+      const headers = [
+        "Payment ID",
+        "Date",
+        "User Email",
+        "User Name",
+        "Amount",
+        "Currency",
+        "Status",
+        "Provider",
+      ];
+
+      const csvRows = [headers.join(",")];
+
+      const rows = payments.map((p) => {
+        // @ts-expect-error - Supabase nested join typing can be tricky
+        const email = p.profiles?.email || "Unknown";
+        // @ts-expect-error - Supabase nested join typing mismatch
+        const name = p.profiles?.display_name || "Unknown";
+        const amnt = (p.amount_cents / 100).toFixed(2);
+
+        return [
+          p.id,
+          p.created_at,
+          `"${email}"`,
+          `"${name}"`,
+          amnt,
+          p.currency,
+          p.status,
+          p.payment_provider || "N/A",
+        ].join(",");
+      });
+
+      csvRows.push(...rows);
+      const csvString = csvRows.join("\n");
+
+      // Download
+      const blob = new Blob([csvString], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `financial_report_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.dismiss();
+      toast.success("Financial report exported successfully.");
+    } catch (err) {
+      console.error(err);
+      toast.dismiss();
+      toast.error("Failed to export financial report.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-8 animate-fade-in">
@@ -163,11 +249,21 @@ const AdminDashboard = () => {
 
         {/* 1. KEY METRICS: 11 Cards (Users -> Revenue) */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Platform Overview</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="flex flex-col md:flex-row gap-2 items-center justify-between">
+            <h2 className="text-xl font-semibold">Platform Overview</h2>
+            <Button
+              onClick={handleExportFinancials}
+              variant="outline"
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export Financial Report (IPO Ready)
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {/* 1. Total Users */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Users
                 </CardTitle>
@@ -185,7 +281,7 @@ const AdminDashboard = () => {
 
             {/* 2. Realtime Active */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Realtime Active
                 </CardTitle>
@@ -201,7 +297,7 @@ const AdminDashboard = () => {
 
             {/* 3. User Satisfaction */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   User Satisfaction
                 </CardTitle>
@@ -221,7 +317,7 @@ const AdminDashboard = () => {
 
             {/* 4. Total Focus Time */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Focus Time
                 </CardTitle>
@@ -244,7 +340,7 @@ const AdminDashboard = () => {
 
             {/* 5. Total Sessions */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Sessions
                 </CardTitle>
@@ -262,7 +358,7 @@ const AdminDashboard = () => {
 
             {/* 6. Avg Session Length */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Avg Session
                 </CardTitle>
@@ -281,7 +377,7 @@ const AdminDashboard = () => {
 
             {/* 7. Active Trials */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Active Trials
                 </CardTitle>
@@ -299,7 +395,7 @@ const AdminDashboard = () => {
 
             {/* 8. Pro Conversion */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Pro Conversion
                 </CardTitle>
@@ -315,7 +411,7 @@ const AdminDashboard = () => {
 
             {/* 9. MRR */}
             <Card className="bg-card/50 border-border/30 bg-primary/5">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   MRR (Est.)
                 </CardTitle>
@@ -338,7 +434,7 @@ const AdminDashboard = () => {
 
             {/* 10. ARPU */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   ARPU
                 </CardTitle>
@@ -363,7 +459,7 @@ const AdminDashboard = () => {
 
             {/* 11. LTV */}
             <Card className="bg-card/50 border-border/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   LTV (Est.)
                 </CardTitle>
@@ -379,7 +475,7 @@ const AdminDashboard = () => {
 
             {/* 12. Est. Project Value */}
             <Card className="bg-card/50 border-border/30 bg-purple-500/10">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col-reverse md:flex-row text-center md:text-left gap-2 items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Stats Value (Est.)
                 </CardTitle>
@@ -471,32 +567,10 @@ const AdminDashboard = () => {
         </div>
 
         {/* 7. DB MANAGEMENT */}
+        {/* 7. DATABASE BROWSER */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">System</h2>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Database Management</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Manage user records, subscriptions, and system configurations.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => navigate("/app/settings")}
-              >
-                Go to Settings
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {/* Placeholder for future DB tools */}
-              <div className="h-20 flex items-center justify-center border-2 border-dashed border-border/50 rounded-lg">
-                <p className="text-muted-foreground text-sm">
-                  Advanced tables coming soon
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Universal Manager handles its own header/card */}
+          <UniversalTableManager />
         </div>
       </div>
     </div>
