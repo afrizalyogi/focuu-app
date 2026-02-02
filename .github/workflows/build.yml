@@ -43,7 +43,7 @@ jobs:
 
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-15 # Menggunakan macOS terbaru untuk Xcode 16+
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -58,15 +58,31 @@ jobs:
       - name: Build Web Project
         run: npm run build
 
-      - name: Sync Capacitor iOS
+      - name: Prepare Capacitor iOS
         run: |
-          # Memastikan folder ios ada dan sinkron
+          # Jika folder ios sama sekali tidak ada, tambahkan platformnya
+          if [ ! -d "ios" ]; then
+            echo "Folder ios tidak ditemukan, menjalankan cap add ios..."
+            npx cap add ios
+          fi
           npx cap sync ios
+
+      - name: Find Workspace Path
+        id: find_step
+        run: |
+          # Mencari file .xcworkspace secara mendalam
+          WS_PATH=$(find ios -name "*.xcworkspace" | head -n 1)
+          if [ -z "$WS_PATH" ]; then
+            echo "CRITICAL ERROR: xcworkspace tidak ditemukan di folder ios!"
+            ls -R ios
+            exit 1
+          fi
+          echo "ws_path=$WS_PATH" >> $GITHUB_OUTPUT
+          echo "Found Workspace: $WS_PATH"
 
       - name: Build iOS Archive
         run: |
-          # Menggunakan path standar Capacitor v7
-          xcodebuild -workspace ios/App/App.xcworkspace \
+          xcodebuild -workspace "${{ steps.find_step.outputs.ws_path }}" \
                      -scheme App \
                      -configuration Debug \
                      -sdk iphoneos \
@@ -77,9 +93,9 @@ jobs:
 
       - name: Export Payload for IPA
         run: |
-          # Mengemas .app menjadi file .ipa mentah (unsigned)
+          APP_PATH=$(find ios/App.xcarchive -name "*.app" | head -n 1)
           mkdir -p Payload
-          cp -r ios/App.xcarchive/Products/Applications/App.app Payload/
+          cp -r "$APP_PATH" Payload/
           zip -r App.ipa Payload
 
       - name: Upload IPA
