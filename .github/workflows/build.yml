@@ -60,7 +60,6 @@ jobs:
       - name: Install Pods
         run: |
           npx cap sync ios
-          cd ios/App && pod install
 
       - name: Build iOS Archive
         run: |
