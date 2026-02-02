@@ -2,7 +2,8 @@ name: Build Mobile Apps (APK & IPA)
 
 on:
   push:
-    branches: [main] # Akan jalan setiap kali Anda push ke branch main
+    branches: [main]
+  workflow_dispatch: # Memungkinkan Anda menjalankan build manual dari UI GitHub
 
 jobs:
   # build-android:
@@ -25,8 +26,8 @@ jobs:
   #     - name: Setup Java
   #       uses: actions/setup-java@v4
   #       with:
-  #         distribution: "zulu"
-  #         java-version: "17"
+  #         distribution: 'zulu'
+  #         java-version: '17'
 
   #     - name: Build Android APK
   #       run: |
@@ -42,7 +43,7 @@ jobs:
 
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-latest # Menggunakan server Mac milik GitHub
+    runs-on: macos-15 # Menggunakan macOS terbaru untuk Xcode 16+
     steps:
       - uses: actions/checkout@v4
 
@@ -57,24 +58,26 @@ jobs:
       - name: Build Web Project
         run: npm run build
 
-      - name: Install Pods
+      - name: Sync Capacitor iOS
         run: |
+          # Memastikan folder ios ada dan sinkron
           npx cap sync ios
 
       - name: Build iOS Archive
         run: |
+          # Menggunakan path standar Capacitor v7
           xcodebuild -workspace ios/App/App.xcworkspace \
                      -scheme App \
                      -configuration Debug \
                      -sdk iphoneos \
+                     -destination 'generic/platform=iOS' \
                      -archivePath ios/App.xcarchive \
                      archive \
                      CODE_SIGNING_ALLOWED=NO
 
-      # Catatan: Tanpa sertifikat Apple Developer, kita hanya bisa buat .xcarchive
-      # Untuk dapet .ipa mentah (unsinged) buat testing:
       - name: Export Payload for IPA
         run: |
+          # Mengemas .app menjadi file .ipa mentah (unsigned)
           mkdir -p Payload
           cp -r ios/App.xcarchive/Products/Applications/App.app Payload/
           zip -r App.ipa Payload
