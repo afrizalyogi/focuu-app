@@ -1,0 +1,87 @@
+name: Build Mobile Apps (APK & IPA)
+
+on:
+  push:
+    branches: [main] # Akan jalan setiap kali Anda push ke branch main
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Project
+        run: npm run build
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Build Android APK
+        run: |
+          npx cap sync android
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest # Menggunakan server Mac milik GitHub
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Project
+        run: npm run build
+
+      - name: Install Pods
+        run: |
+          npx cap sync ios
+          cd ios/App && pod install
+
+      - name: Build iOS Archive
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace \
+                     -scheme App \
+                     -configuration Debug \
+                     -sdk iphoneos \
+                     -archivePath ios/App.xcarchive \
+                     archive \
+                     CODE_SIGNING_ALLOWED=NO
+
+      # Catatan: Tanpa sertifikat Apple Developer, kita hanya bisa buat .xcarchive
+      # Untuk dapet .ipa mentah (unsinged) buat testing:
+      - name: Export Payload for IPA
+        run: |
+          mkdir -p Payload
+          cp -r ios/App.xcarchive/Products/Applications/App.app Payload/
+          zip -r App.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-ipa
+          path: App.ipa

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">focuu-mobile</string>
+    <string name="title_activity_main">focuu-mobile</string>
+    <string name="package_name">com.focuu.site</string>
+    <string name="custom_url_scheme">com.focuu.site</string>
+</resources>

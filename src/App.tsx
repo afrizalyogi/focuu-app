@@ -73,13 +73,32 @@ const AnalyticsTracker = () => {
   return null;
 };
 
+// Root redirect component
+const RootRedirect = () => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/app" replace />;
+  }
+
+  return <Navigate to="/auth" replace />;
+};
+
 const AppRoutes = () => (
   <>
     <ScrollToTop />
     <AnalyticsTracker />
     <InteractionTracker />
     <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<RootRedirect />} />
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/work" element={<Work />} />
       <Route path="/auth" element={<Auth />} />
